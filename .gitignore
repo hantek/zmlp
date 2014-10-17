@@ -1,0 +1,6 @@
+#files to ignore
+*~      #gedit backup files
+*.swp   #vim swap files
+*.pyc   #python files
+exp/*   #experiments
+
