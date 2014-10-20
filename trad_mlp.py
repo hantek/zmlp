@@ -11,8 +11,8 @@ import theano
 import theano.tensor as T
 from theano.tensor.shared_randomstreams import RandomStreams
 
-if not "/home/hantek/DeepLearningTutorials/code/" in sys.path:
-    sys.path.append("/home/hantek/DeepLearningTutorials/code/")
+if not "../DeepLearningTutorials/code/" in sys.path:
+    sys.path.append("../DeepLearningTutorials/code/")
 
 from logistic_sgd import LogisticRegression, load_data
 from mlp import HiddenLayer
@@ -43,7 +43,7 @@ class HiddenZaeLayer():
 
 class SZAE(object):
     def __init__(self, numpy_rng, theano_rng=None, n_ins=784,
-                 hidden_layers_sizes=[500, 500], n_outs=10):
+                 hidden_layers_sizes=[500, 500], n_outs=10, lambda_zae=0.0001):
         self.zae_layers = []
         self.zae_cost = []
         self.params = []
@@ -92,7 +92,7 @@ class SZAE(object):
         self.finetune_cost = self.logLayer.negative_log_likelihood(self.y)
 
         for i in self.zae_cost:
-            self.finetune_cost = self.finetune_cost + i
+            self.finetune_cost = self.finetune_cost + i * lambda_zae
         
         # symbolic variable that points to the number of errors made on the
         # minibatch given by self.x and self.y
@@ -369,7 +369,7 @@ class MLP(object):
 
 def test(finetune_lr=0.1, training_epochs=1000, 
              hidden_layers_sizes = [500, 500, 500],
-             dataset='../data/mnist.pkl.gz', batch_size=100):
+             dataset='../DeepLearningTutorials/data/mnist.pkl.gz', batch_size=100):
 
     datasets = load_data(dataset)
 
