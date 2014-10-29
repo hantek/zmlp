@@ -4,6 +4,7 @@
 *.pyc   #python files
 exp/*   #experiments
 *.bak
+*.swp
 
 #Don't track the image files:
 *.png
