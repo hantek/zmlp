@@ -17,26 +17,27 @@ class Model(object):
     """
     A base class for models, which by inheritation can turn to be a concreate
     classifier or regressor.
-
+    
     TODO: Currently other classes coed not inherit from it. Will do it in the 
     future. 
     """
     def __init__(self, n_in, n_out, varin=None):
         self.n_in = n_in
         self.n_out = n_out
-
+        
         if not varin:
             varin=T.matrix('varin')
         assert isinstance(varin, T.TensorVariable)
         self.varin = varin
-        self.params = []  # to be implemented by subclass
 
     def cost(self):
         raise NotImplementedError("Must be implemented by subclass.")
 
+    def 
+
 
 class AutoEncoder(Model):
-    def __init__(self, n_in, n_out, vistype, varin=None, tie=True, 
+    def __init__(self, n_in, n_out, varin=None, tie=True, 
                  init_w=None, init_wT=None, init_b=None, init_bT=None, 
                  npy_rng=None):
         """
@@ -48,35 +49,15 @@ class AutoEncoder(Model):
         if tie:
             assert init_wT == None, "Tied autoencoder do not accept init_wT."
             assert init_bT == None, "Tied autoencoder do not accept init_bT."
-            self.init_wT = init_w
-            self.init_bT = init_b
-        else:
-            assert isinstance(init_wT, theano.compile.sharedvalue.SharedVariable)
-            assert isinstance(init_bT, theano.compile.sharedvalue.SharedVariable)
-            self.init_wT = init_wT
-            self.init_bT = init_bT
+            init_wT = init_w
+            init_bT = init_b
         
-        self.vistype = vistype
-        if self.vistype == 'binary':
-            self.encoder = layer.SigmoidLayer(n_in, n_out, varin=self.varin, 
-                init_w=self.init_w, init_b=self.init_b, npy_rng=npy_rng)
-            self.decoder = layer.SigmoidLayer(
-                n_out, n_in, varin=self.encoder.output(), 
-                init_w=self.init_wT, init_b=self.init_bT, npy_rng=npy_rng)
-        elif self.vistype == 'real':
-            self.encoder = layer.LinearLayer(n_in, n_out, varin=self.varin, 
-                init_w=self.init_w, init_b=self.init_b, npy_rng=npy_rng)
-            self.decoder = layer.LinearLayer(
-                n_out, n_in, varin=self.encoder.output(), 
-                init_w=self.init_wT, init_b=self.init_bT, npy_rng=npy_rng)
-        else:
-            raise ValueError("vistype has to be either binary or real.")
+        self.encoder = layer.SigmoidLayer(n_in, n_out, 
+            varin=self.varin, init_w=init_w, init_b=init_b, npy_rng=npy_rng)
+        self.decoder = layer.SigmoidLayer(n_out, n_in, 
+            varin=self.encoder.output(), init_w=init_wT, init_b=init_bT, 
+            npy_rng=npy_rng)
         
-        if tie:
-            self.params = self.encoder.params + [self.decoder.b]
-        else:
-            self.params = self.encoder.params + self.decoder.params
-
         # for plotting
         self.rangex=[0., 1.]
         self.rangey=[0., 1.]
@@ -89,21 +70,13 @@ class AutoEncoder(Model):
     
     def cost(self):
         """
-        By default it presents a cross entropy cost for binary data and MSE for
-        real valued data. We can still overide it if we were using a different 
-        training criteria.
+        By default it presents a cross entropy cost for training binary data.
+        We can still overide it if we were using a different training criteria.
         """
-        if self.vistype == 'binary':
-            x_head = self.reconstruction()
-            cost_per_case = - T.sum(self.varin * T.log(x_head) + \
-                (1 - self.varin) * T.log(1 - x_head), axis=1)
-            return T.mean(cost_per_case)
-        elif self.vistype == 'real':
-            cost_per_case = T.sum((self.reconstruction() - self.varin) ** 2, 
-                                  axis=1)
-            return T.mean(cost_per_case)
-        else:
-            raise ValueError("vistype has to be either binary or real.")
+        x_head = self.reconstruction()
+        loss = - T.sum(      self.varin * T.log(x_head) + \
+                       (1 - self.varin) * T.log(1 - x_head), axis=1)
+        return T.mean(loss)
 
 
     # Following are for analysis -----------------------------------------------
@@ -151,34 +124,9 @@ class AutoEncoder(Model):
             self._fig_quiver.canvas.draw()
         
 
-class ZerobiasAutoencoder(AutoEncoder):
-    def __init__(self, n_in, n_out, threshold=1.0, vistype, varin=None, 
-                 tie=True, init_w=None, init_wT=None, init_bT=None, 
-                 npy_rng=None):
-        super().__init__(n_in, n_out, vistype, varin=varin, tie=tie, 
-                         init_w=init_w, init_wT=init_wT, 
-                         init_b=None, init_bT=None,
-                         npy_rng=None)
-
-        self.encoder = layer.ZerobiasLayer(n_in, n_out, threshold=threshold, 
-            varin=self.varin, init_w=self.init_w, npy_rng=npy_rng)
-        
-        if self.vistype == 'binary':
-            self.decoder = layer.SigmoidLayer(
-                n_out, n_in, varin=self.encoder.output(), 
-                init_w=self.init_wT, init_b=self.init_bT, npy_rng=npy_rng)
-        elif self.vistype == 'real':
-            self.decoder = layer.LinearLayer(
-                n_out, n_in, varin=self.encoder.output(),
-                init_w=self.init_wT, init_b=self.init_bT, npy_rng=npy_rng)
-        else:
-            raise ValueError("vistype has to be either binary or real.")
-
-        if tie:
-            self.params = self.encoder.params + [self.decoder.b]
-        else:
-            self.params = self.encoder.params + self.decoder.params
-
+class ZerobiasAutoencoder(Model):
+    def __init__(self, ):
+        super().__init__()
 
 class StackedAutoEncoder(object):
     def __init__(self, ):
@@ -187,4 +135,3 @@ class StackedAutoEncoder(object):
         ----------
          
         """
-        pass

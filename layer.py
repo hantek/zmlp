@@ -6,6 +6,7 @@ definition of models here.
 """
 import numpy
 import theano
+import theano.tensor as T
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -29,14 +30,13 @@ class Layer(object):
             varin = T.matrix('varin')
         assert isinstance(varin, T.TensorVariable)
         self.varin = varin
-        
-        self.w = None  # to be implemented by subclass
-        self._fig_weight = None
 
-    def get_fanin(self):
+        self.params = []  # to be implemented by subclass
+
+    def fanin(self):
         raise NotImplementedError("Must be implemented by subclass.")
     
-    def get_output(self):
+    def output(self):
         raise NotImplementedError("Must be implemented by subclass.")
    
     def __add__(self, other):
@@ -45,10 +45,13 @@ class Layer(object):
         """
         assert isinstance(other, layer)
         assert other.n_in == self.n_out
-        other.varin = self.get_output()
-        return other.get_output()
+        other.varin = self.output()
+        return other.output()
 
-    def draw_weight(self, verbose=False, 
+
+    # Following are for analysis ----------------------------------------------
+
+    def draw_weight(self, verbose=True, 
                     filename='default_draw_baselayer_w.png'):
         """
         Parameters
@@ -61,9 +64,9 @@ class Layer(object):
         Notes
         -----------
         """
-        assert self.w
+        assert hasattr(self, 'w'), "The layer need to have weight defined."
 
-        if not self._fig_weight:
+        if not hasattr(self, '_fig_weight'):
             self._fig_weight = plt.gcf()
             plt1 = self._fig_weight.add_subplot(311)
             p1 = plt1.imshow(self.w.get_value())
@@ -85,14 +88,13 @@ class Layer(object):
 class SigmoidLayer(Layer):
     def __init__(self, n_in, n_out, varin=None, init_w=None, init_b=None, 
                  npy_rng=None):
-        super().__init__(n_in, n_out)
+        super().__init__(n_in, n_out, varin=varin)
         if not npy_rng:
             npy_rng = numpy.random.RandomState(123)
         assert isinstance(npy_rng, numpy.random.RandomState)
-        self._npy_rng = npy_rng
 
         if not init_w:
-            w = numpy.asarray(self._npy_rng.uniform(
+            w = numpy.asarray(npy_rng.uniform(
                 low = -4 * numpy.sqrt(6. / (n_in + n_out)),
                 high = 4 * numpy.sqrt(6. / (n_in + n_out)),
                 size=(n_in, n_out)), dtype=theano.config.floatX)
@@ -102,28 +104,31 @@ class SigmoidLayer(Layer):
             self.w = init_w
 
         if not init_b:
-            init_b = numpy.zeros(n_out)
-        assert init_b.shape == (n_out,)
-        self.b = theano.shared(value=init_b, name='b_sigmoid', borrow=True)
+            self.b = theano.shared(value=numpy.zeros(n_out),
+                                   name='b_sigmoid', borrow=True)
+        else:
+            assert init_b.get_value().shape == (n_out,)
+            self.b = init_b
 
-    def get_fanin(self):
+        self.params = [self.w, self.b]
+
+    def fanin(self):
         return T.dot(self.varin, self.w) + self.b
 
-    def get_output(self):
-        return T.nnet.sigmoid(get_fanin())
+    def output(self):
+        return T.nnet.sigmoid(self.fanin())
 
 
 class LinearLayer(Layer):
     def __init__(self, n_in, n_out, varin=None, init_w=None, init_b=None, 
                  npy_rng=None):
-        super().__init__(n_in, n_out)
+        super().__init__(n_in, n_out, varin=varin)
         if not npy_rng:
             npy_rng = numpy.random.RandomState(123)
         assert isinstance(npy_rng, numpy.random.RandomState)
-        self._npy_rng = npy_rng
 
         if not init_w:
-            w = numpy.asarray(self._npy_rng.uniform(
+            w = numpy.asarray(npy_rng.uniform(
                 low = -4 * numpy.sqrt(6. / (n_in + n_out)),
                 high = 4 * numpy.sqrt(6. / (n_in + n_out)),
                 size=(n_in, n_out)), dtype=theano.config.floatX)
@@ -133,28 +138,31 @@ class LinearLayer(Layer):
             self.w = init_w
 
         if not init_b:
-            init_b = numpy.zeros(n_out)
-        assert init_b.shape == (n_out,)
-        self.b = theano.shared(value=init_b, name='b_linear', borrow=True)
+            self.b = theano.shared(value=numpy.zeros(n_out),
+                                   name='b_linear', borrow=True)
+        else:
+            assert init_b.get_value().shape == (n_out,)
+            self.b = init_b
 
-    def get_fanin(self):
+        self.params = [self.w, self.b]
+
+    def fanin(self):
         return T.dot(self.varin, self.w) + self.b
 
-    def get_output(self):
-        return get_fanin()
+    def output(self):
+        return self.fanin()
 
 
 class ZerobiasLayer(Layer):
     def __init__(n_in, n_out, threshold=1.0, varin=None, init_w=None, 
                  npy_rng=None):
-        super().__init__(n_in, n_out)
+        super().__init__(n_in, n_out, varin=varin)
         if not npy_rng:
             npy_rng = numpy.random.RandomState(123)
         assert isinstance(npy_rng, numpy.random.RandomState)
-        self._npy_rng = npy_rng
 
         if not init_w:
-            w = numpy.asarray(self._npy_rng.uniform(
+            w = numpy.asarray(npy_rng.uniform(
                 low=-4 * numpy.sqrt(6. / (n_in + n_out)),
                 high=4 * numpy.sqrt(6. / (n_in + n_out)),
                 size=(n_in, n_out)), dtype=theano.config.floatX)
@@ -162,13 +170,19 @@ class ZerobiasLayer(Layer):
         else:
             assert init_w.get_value().shape == (n_in, n_out)
             self.w = init_w
+        self.params = [self.w]
+
         self.threshold = threshold
 
-    def get_fanin(self):
+    def fanin(self):
         return T.dot(self.varin, self.w)
 
-    def get_output(self):
-        return (get_fanin() > self.threshold) * get_fanin()
+    def output(self):
+        return (self.fanin() > self.threshold) * self.fanin()
+
+class TanhLayer(Layer):
+    def __init__(self):
+        raise NotImplementedError("Not implemented yet...")
 
 
 class GatedLinearLayer(Layer):
