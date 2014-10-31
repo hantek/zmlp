@@ -19,18 +19,18 @@ class Classifier(Model):
 
 class LogisticRegression(Classifier):
     def __init__(self):
-        #
-        # TODO: Should it go into classifiers file?
-        #
-        pass
+         
+
     def cost(self):
-    def error():
+
+
 class Perceptron(Classifier):
     def __init__(self):
         #
         # TODO: Should it go into classifiers file?
         #
         pass
+
 
 class LinearRegression(Classifier):
     def __init__(self):
