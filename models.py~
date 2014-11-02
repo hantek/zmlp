@@ -19,7 +19,7 @@ class Model(Layer):
     classifier or regressor.
     """
     def __init__(self, n_in, n_out, varin=None):
-        super(Model, self).__init__(n_in, n_out, varin=varin)
+        super().__init__(n_in, n_out, varin=varin)
     
     def fanin(self):
         print "Calling the fan-in of a base model has no meaning."
@@ -39,7 +39,7 @@ class AutoEncoder(Model):
         By default the encoder and decoder are both set to be sigmoid layers. 
         Users can overide it to be other kind of layers in ther subclass.
         """
-        super(AutoEncoder, self).__init__(n_in, n_out, varin)
+        super().__init__(n_in, n_out, varin)
 
         if tie:
             assert init_wT == None, "Tied autoencoder do not accept init_wT."
@@ -151,11 +151,10 @@ class ZerobiasAutoencoder(AutoEncoder):
     def __init__(self, n_in, n_out, threshold=1.0, vistype, varin=None, 
                  tie=True, init_w=None, init_wT=None, init_bT=None, 
                  npy_rng=None):
-        super(ZerobiasAutoencoder, self).__init__(
-            n_in, n_out, vistype, varin=varin, tie=tie, 
-            init_w=init_w, init_wT=init_wT, init_b=None, init_bT=None,
-            npy_rng=None
-        )
+        super().__init__(n_in, n_out, vistype, varin=varin, tie=tie, 
+                         init_w=init_w, init_wT=init_wT, 
+                         init_b=None, init_bT=None,
+                         npy_rng=None)
 
         self.encoder = layer.ZerobiasLayer(n_in, n_out, threshold=threshold, 
             varin=self.varin, init_w=self.init_w, npy_rng=npy_rng)

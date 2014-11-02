@@ -19,7 +19,7 @@ class Classifier(Model):
     def output(self):
         """The input and output should always be theano variables."""
         raise NotImplementedError("Must be implemented by subclass.")
-
+    
     
     # Following are for analysis ----------------------------------------------
     

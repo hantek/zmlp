@@ -89,8 +89,8 @@ class StackedLayer(Layer):
     def __init__(self, models_stack=[], varin=None):
         """
         Ensure the following things:
-        1. By calling StackedLayer([...], [...]) we definitely get a stacked la-
-           yer.
+        1. By calling StackedLayer([...], [...]) we definitely get a stacked lay-
+           er.
         2. StackedLayer as a whole can be viewed as a 1-layer model.
         3. By calling 
             Layer(...) + Layer(...), 
@@ -99,7 +99,7 @@ class StackedLayer(Layer):
            we can get a StackedLayer object at its expression value.
         """
         # TODO: assert class type of passed models_stack.
-        super(StackedLayer, self).__init__(n_in=models_stack[0].n_in, 
+        super().__init__(n_in=models_stack[0].n_in, 
                          n_out=models_stack[-1].n_out, 
                          varin=varin)
         
@@ -129,7 +129,7 @@ class StackedLayer(Layer):
 class SigmoidLayer(Layer):
     def __init__(self, n_in, n_out, varin=None, init_w=None, init_b=None, 
                  npy_rng=None):
-        super(SigmoidLayer, self).__init__(n_in, n_out, varin=varin)
+        super().__init__(n_in, n_out, varin=varin)
         if not npy_rng:
             npy_rng = numpy.random.RandomState(123)
         assert isinstance(npy_rng, numpy.random.RandomState)
@@ -163,7 +163,7 @@ class SigmoidLayer(Layer):
 class LinearLayer(Layer):
     def __init__(self, n_in, n_out, varin=None, init_w=None, init_b=None, 
                  npy_rng=None):
-        super(LinearLayer, self).__init__(n_in, n_out, varin=varin)
+        super().__init__(n_in, n_out, varin=varin)
         if not npy_rng:
             npy_rng = numpy.random.RandomState(123)
         assert isinstance(npy_rng, numpy.random.RandomState)
@@ -197,7 +197,7 @@ class LinearLayer(Layer):
 class ZerobiasLayer(Layer):
     def __init__(n_in, n_out, threshold=1.0, varin=None, init_w=None, 
                  npy_rng=None):
-        super(ZerobiasLayer, self).__init__(n_in, n_out, varin=varin)
+        super().__init__(n_in, n_out, varin=varin)
         if not npy_rng:
             npy_rng = numpy.random.RandomState(123)
         assert isinstance(npy_rng, numpy.random.RandomState)
