@@ -22,10 +22,10 @@ class Model(Layer):
         super(Model, self).__init__(n_in, n_out, varin=varin)
     
     def fanin(self):
-        print "Calling the fan-in of a base model has no meaning."
+        print "Calling the fan-in of a base model might have no meaning."
 
     def output(self):
-        print "Calling the output of a base model has no meaning."
+        print "Calling the output of a base model might have no meaning."
 
     def cost(self):
         raise NotImplementedError("Must be implemented by subclass.")
@@ -80,9 +80,16 @@ class AutoEncoder(Model):
     def hidden(self):
         return self.encoder.output()
 
+    def output(self):
+        """
+        Setting the output in this manner helps stacking the encoders in a 
+        convenient way.
+        """
+        return self.hidden()
+
     def reconstruction(self):
         return self.decoder.output()
-    
+
     def cost(self):
         """
         By default it presents a cross entropy cost for binary data and MSE for

@@ -44,9 +44,6 @@ class Layer(object):
         It is used for conveniently construct stacked layers.
         """
         assert isinstance(other, Layer), "Addition not defined."
-        assert other.n_in == self.n_out, 
-            "Stacked layer should match the input and output dimension with"
-            "each other."
         return StackedLayer(models_stack=[self, other], varin=self.varin)
 
 
@@ -109,6 +106,9 @@ class StackedLayer(Layer):
             if not previous_layer:  # First layer
                 layer_model.varin = self.varin
             else:
+                assert previous_layer.n_out == layer_model.n_in,
+                    "Stacked layer should match the input and output dimension"
+                    "with each other."
                 layer_model.varin = previous_layer.output()
             previous_layer = layer_model
             self.params += layer_model.params
