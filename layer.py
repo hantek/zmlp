@@ -43,9 +43,11 @@ class Layer(object):
         """
         It is used for conveniently construct stacked layers.
         """
-        assert isinstance(other, Layer), "Addition not defined."
-        return StackedLayer(models_stack=[self, other], varin=self.varin)
-
+        if isinstance(other, Layer):
+            return StackedLayer(models_stack=[self, other], 
+                                varin=self.varin)
+        else:
+            raise SyntaxError("Addition not defined.")
 
     # Following are for analysis ----------------------------------------------
 
@@ -112,6 +114,7 @@ class StackedLayer(Layer):
                 layer_model.varin = previous_layer.output()
             previous_layer = layer_model
             self.params += layer_model.params
+        self.models_stack = models_stack
 
         if hasattr(models_stack[0], 'w'):  # This is for visualizing weights.
             self.w = models_stack[0].w

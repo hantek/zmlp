@@ -13,8 +13,12 @@ from layer import SigmoidLayer
 
 
 class Classifier(Model):
-    def __init__(self, n_in, n_out, varin=None):
+    def __init__(self, n_in, n_out, varin=None, vartruth=None):
         super(Classifier, self).__init__(n_in, n_out, varin=varin)
+        if not vartruth:
+            vartruth = T.ivector('truth')
+        assert isinstance(vartruth, T.TensorVariable)
+        self.vartruth = vartruth
 
     def output(self):
         """The input and output should always be theano variables."""
@@ -56,9 +60,11 @@ class Classifier(Model):
 
 
 class LogisticRegression(Classifier):
-    def __init__(self, n_in, n_out, varin=None, init_w=None, init_b=None,
-                 npy_rng=None):
-        super(LogisticRegression, self).__init__(n_in, n_out, varin=varin)
+    def __init__(self, n_in, n_out, varin=None, vartruth=None, 
+                 init_w=None, init_b=None, npy_rng=None):
+        super(LogisticRegression, self).__init__(n_in, n_out, 
+                                                 varin=varin,
+                                                 vartruth=vartruth)
         self.layer = SigmoidLayer(
             n_in, n_out, varin=varin, 
             init_w=init_w, init_b=init_b, npy_rng=npy_rng
@@ -68,12 +74,15 @@ class LogisticRegression(Classifier):
     def p_y_given_x(self):
         return T.nnet.softmax(self.layer.fanin())
 
-    def cost(self, y_truth):
+    def cost(self):
         """
         y_truth : theano.tensor.TensorType
         The truth value of data. Usually y_truth = ivector('y_truth')
         """
-        return -T.mean(T.log(self.p_y_given_x())[T.arange(y_truth.shape[0]), y])
+        return -T.mean(
+            T.log(self.p_y_given_x())[
+                T.arange(self.vartruth.shape[0]), y]
+        )
 
     def output(self):
         return T.argmax(self.p_y_given_x(), axis=1)
@@ -92,14 +101,4 @@ class LinearRegression(Classifier):
         #
         # TODO:
         #
-        pass
-
-
-class StackedAutoEncoder(object):
-    def __init__(self, layers=[100, 100], varin=None, ):
-        """
-        Parameters
-        ----------
-         
-        """
         pass

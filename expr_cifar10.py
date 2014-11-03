@@ -1,5 +1,8 @@
 from layer import ZerobiasLayer
 from classifier import LogisticRegression
+from model import ZerobiasAutoencoder
+from dispims_color import dispims_color
+
 import train
 import numpy
 import theano
@@ -97,7 +100,7 @@ pca_backward, _, _, _ = pca(trainpatches, 0.9, whiten=True)
 trainpatches_whitened = numpy.dot(trainpatches, pca_backward.T).astype("float32")
 
 ###############
-# BULID MODEL #
+# BUILD MODEL #
 ###############
 
 trainpatches_theano = theano.shared(value=trainpatches_whitened,
@@ -109,27 +112,39 @@ train_y_theano = theano.shared(value=train_y,
 
 npy_rng = numpy.random.RandomState(123)
 model = ZerobiasLayer(
-    432, 100, threshold=1., vistype='binary', tie=True, npy_rng=npy_rng
+    432, 100, threshold=1., npy_rng=npy_rng
 ) + LogisticRegression(
     100, 10, npy_rng=npy_rng
 )
 
-#########
-# TRAIN #
-#########
+#############
+# PRE-TRAIN #
+#############
 
-# DO SOME STEPS WITH SMALL LEARNING RATE TO MAKE SURE THE INITIALIZATION IS IN A 
-# REASONABLE RANGE
-trainer = train.GraddescentMinibatch(
-    model, trainpatches_theano, 100, learningrate=0.0001, momentum=0.9
-)
-trainer.step(); trainer.step(); trainer.step() 
-
-# TRAIN THE MODEL FOR REAL, AND SHOW FILTERS 
-trainer = train.GraddescentMinibatch(
-    model, trainpatches_theano, 100, learningrate=0.01, momentum=0.9
+pretrain_model = ZerobiasAutoencoder(
+    432, 100, threshold=1., vistype='binary', tie=True, 
+    init_w=model.models_stack[0].w, npy_rng=npy_rng
 )
 
+# DO SOME STEPS WITH SMALL LEARNING RATE TO MAKE SURE THE INITIALIZATION IS IN 
+# A REASONABLE RANGE
+trainer = train.GraddescentMinibatch(
+    varin=pretrain_model.varin, data=trainpatches_theano, 
+    cost=pretrain_model.cost(),
+    params=pre_train_model.params,
+    supervised=False,
+    batchsize=100, learningrate=0.0001, momentum=0.9, rng=npy_rng
+)
+trainer.step(); trainer.step(); trainer.step()
+
+# TRAIN THE MODEL FOR REAL, AND SHOW FILTERS
+trainer = train.GraddescentMinibatch(
+    varin=pretrain_model.varin, data=trainpatches_theano, 
+    cost=pretrain_model.cost(),
+    params=pre_train_model.params,
+    supervised=False,
+    batchsize=100, learningrate=0.01, momentum=0.9, rng=npy_rng
+)
 
 for epoch in xrange(100):
     trainer.step()
@@ -140,3 +155,20 @@ for epoch in xrange(100):
                 model.W.get_value().T, pca_forward.T
             ).reshape(-1, patchsize, patchsize, 3), 1)
         pylab.draw(); pylab.show()
+
+#############
+# FINE-TUNE #
+#############
+
+trainer = train.GraddescentMinibatch(
+    varin=model.varin, data=trainpatches_theano, 
+    cost=model.models_stack[-1].cost(),
+    params=pre_train_model.params,
+    truth=model.models_stack[-1].vartruth,
+    truth_data=train_y_theano,
+    supervised=True,
+    model=model, data=trainpatches_theano,
+    batchsize=100, learningrate=0.01, momentum=0.9, rng=npy_rng
+)
+
+
