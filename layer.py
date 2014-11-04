@@ -144,7 +144,10 @@ class SigmoidLayer(Layer):
                 size=(n_in, n_out)), dtype=theano.config.floatX)
             self.w = theano.shared(value=w, name='w_sigmoid', borrow=True)
         else:
-            assert init_w.get_value().shape == (n_in, n_out)
+            # The following assetion is complaining about an attribute error
+            # while passing w.T to it. Considering using a more robust way
+            # of assertion in the future. TODO.
+            # assert init_w.get_value().shape == (n_in, n_out)
             self.w = init_w
 
         if not init_b:
@@ -178,7 +181,10 @@ class LinearLayer(Layer):
                 size=(n_in, n_out)), dtype=theano.config.floatX)
             self.w = theano.shared(value=w, name='w_linear', borrow=True)
         else:
-            assert init_w.get_value().shape == (n_in, n_out)
+            # The following assetion is complaining about an attribute error
+            # while passing w.T to it. Considering using a more robust way
+            # of assertion in the future. TODO.
+            # assert init_w.get_value().shape == (n_in, n_out)
             self.w = init_w
 
         if not init_b:
@@ -212,7 +218,10 @@ class ZerobiasLayer(Layer):
                 size=(n_in, n_out)), dtype=theano.config.floatX)
             self.w = theano.shared(value=w, name='w_zerobias', borrow=True)
         else:
-            assert init_w.get_value().shape == (n_in, n_out)
+            # The following assetion is complaining about an attribute error
+            # while passing w.T to it. Considering using a more robust way
+            # of assertion in the future. TODO.
+            # assert init_w.get_value().shape == (n_in, n_out)
             self.w = init_w
         self.params = [self.w]
 

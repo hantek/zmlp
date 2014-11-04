@@ -41,19 +41,23 @@ class AutoEncoder(Model):
         """
         super(AutoEncoder, self).__init__(n_in, n_out, varin)
 
-        assert ((init_w == None) or \
-            isinstance(init_w, theano.compile.sharedvalue.SharedVariable))
+        # assert ((init_w == None) or \
+        #     isinstance(init_w, theano.compile.sharedvalue.SharedVariable))
         assert ((init_b == None) or \
             isinstance(init_b, theano.compile.sharedvalue.SharedVariable))
         assert ((init_bT == None) or \
             isinstance(init_bT, theano.compile.sharedvalue.SharedVariable))
-        
+        self.init_w = init_w
+        self.init_b = init_w
+        self.init_bT = init_bT
+
         if tie:
             assert init_wT == None, "Tied autoencoder do not accept init_wT."
             init_wT = init_w.T
-        else:
-            assert isinstance(init_wT, 
-                              theano.compile.sharedvalue.SharedVariable)
+        self.init_wT = init_wT
+        # else:
+        #     assert isinstance(init_wT, 
+        #                       theano.compile.sharedvalue.SharedVariable)
         
         self.vistype = vistype
         if self.vistype == 'binary':
@@ -168,7 +172,7 @@ class ZerobiasAutoencoder(AutoEncoder):
         )
 
         self.encoder = ZerobiasLayer(n_in, n_out, threshold=threshold, 
-            varin=self.varin, init_w=self.init_w, npy_rng=npy_rng)
+            varin=self.varin, init_w=init_w, npy_rng=npy_rng)
         
         if self.vistype == 'binary':
             self.decoder = SigmoidLayer(

@@ -57,8 +57,8 @@ def pca(data, var_fraction, whiten=True):
 #############
 
 crnt_dir = os.getcwd()
-# os.chdir('/home/hantek/data/cifar-10-batches-py')
-os.chdir('/data/lisa/data/cifar10/cifar-10-batches-py')
+os.chdir('/home/hantek/data/cifar-10-batches-py')
+# os.chdir('/data/lisa/data/cifar10/cifar-10-batches-py')
 npy_rng = numpy.random.RandomState(123)
 train_x_list = []
 train_y_list = []
@@ -136,7 +136,7 @@ pretrain_model = ZerobiasAutoencoder(
 trainer = train.GraddescentMinibatch(
     varin=pretrain_model.varin, data=trainpatches_theano, 
     cost=pretrain_model.cost(),
-    params=pre_train_model.params,
+    params=pretrain_model.params,
     supervised=False,
     batchsize=100, learningrate=0.0001, momentum=0.9, rng=npy_rng
 )
@@ -168,7 +168,7 @@ for epoch in xrange(10):
 trainer = train.GraddescentMinibatch(
     varin=model.varin, data=trainpatches_theano, 
     cost=model.models_stack[-1].cost(),
-    params=pre_train_model.params,
+    params=pretrain_model.params,
     truth=model.models_stack[-1].vartruth,
     truth_data=train_y_theano,
     supervised=True,

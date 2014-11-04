@@ -29,7 +29,7 @@ class GraddescentMinibatch(object):
         self.supervised    = supervised
         if rng is None:
             rng = numpy.random.RandomState(1)
-        assert isinstance(rng, numy.random.RandomState), \
+        assert isinstance(rng, numpy.random.RandomState), \
             "rng has to be a random number generater."
         self.rng = rng
 
@@ -47,9 +47,9 @@ class GraddescentMinibatch(object):
             assert isinstance(truth, T.TensorVariable)
             self.truth_data = truth_data
             self.truth = truth
-        self.grads = T.grads(self.cost, self.params)
+        self.grad = T.grad(self.cost, self.params)
 
-        self.set_learningrate(self.learningrate)
+        self.set_learningrate(learningrate)
 
 
     def set_learningrate(self, learningrate):
@@ -65,7 +65,7 @@ class GraddescentMinibatch(object):
                            # from (key) params
                            # to (value) params + inc_params
                            
-        for _param, _grad in zip(self.params, self.grads):
+        for _param, _grad in zip(self.params, self.grad):
             self.inc_updates[self.incs[_param]] = \
                 self.momentum * self.incs[_param] - self.learningrate * _grad
             self.updates[_param] = _param + self.incs[_param]
