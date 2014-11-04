@@ -29,7 +29,7 @@ class GraddescentMinibatch(object):
         self.supervised    = supervised
         if rng is None:
             rng = numpy.random.RandomState(1)
-        assert isinstance(rng, numy.random.RandomState), 
+        assert isinstance(rng, numy.random.RandomState), \
             "rng has to be a random number generater."
         self.rng = rng
 
@@ -87,7 +87,7 @@ class GraddescentMinibatch(object):
                 updates = self.inc_updates,
                 givens = {
                     self.varin : self.data[self.index * self.batchsize: \
-                                           (self.index+1)*self.batchsize]
+                                           (self.index+1)*self.batchsize],
                     self.truth : self.truth_data[self.index * self.batchsize: \
                                                  (self.index+1)*self.batchsize]
                 }

@@ -10,7 +10,7 @@ import theano.tensor as T
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-import layer
+from layer import Layer, SigmoidLayer, LinearLayer,ZerobiasLayer
 
 
 class Model(Layer):
@@ -41,30 +41,33 @@ class AutoEncoder(Model):
         """
         super(AutoEncoder, self).__init__(n_in, n_out, varin)
 
+        assert ((init_w == None) or \
+            isinstance(init_w, theano.compile.sharedvalue.SharedVariable))
+        assert ((init_b == None) or \
+            isinstance(init_b, theano.compile.sharedvalue.SharedVariable))
+        assert ((init_bT == None) or \
+            isinstance(init_bT, theano.compile.sharedvalue.SharedVariable))
+        
         if tie:
             assert init_wT == None, "Tied autoencoder do not accept init_wT."
-            assert init_bT == None, "Tied autoencoder do not accept init_bT."
-            self.init_wT = init_w
-            self.init_bT = init_b
+            init_wT = init_w.T
         else:
-            assert isinstance(init_wT, theano.compile.sharedvalue.SharedVariable)
-            assert isinstance(init_bT, theano.compile.sharedvalue.SharedVariable)
-            self.init_wT = init_wT
-            self.init_bT = init_bT
+            assert isinstance(init_wT, 
+                              theano.compile.sharedvalue.SharedVariable)
         
         self.vistype = vistype
         if self.vistype == 'binary':
-            self.encoder = layer.SigmoidLayer(n_in, n_out, varin=self.varin, 
-                init_w=self.init_w, init_b=self.init_b, npy_rng=npy_rng)
-            self.decoder = layer.SigmoidLayer(
+            self.encoder = SigmoidLayer(n_in, n_out, varin=self.varin, 
+                init_w=init_w, init_b=init_b, npy_rng=npy_rng)
+            self.decoder = SigmoidLayer(
                 n_out, n_in, varin=self.encoder.output(), 
-                init_w=self.init_wT, init_b=self.init_bT, npy_rng=npy_rng)
+                init_w=init_wT, init_b=init_bT, npy_rng=npy_rng)
         elif self.vistype == 'real':
-            self.encoder = layer.LinearLayer(n_in, n_out, varin=self.varin, 
-                init_w=self.init_w, init_b=self.init_b, npy_rng=npy_rng)
-            self.decoder = layer.LinearLayer(
+            self.encoder = LinearLayer(n_in, n_out, varin=self.varin, 
+                init_w=init_w, init_b=init_b, npy_rng=npy_rng)
+            self.decoder = LinearLayer(
                 n_out, n_in, varin=self.encoder.output(), 
-                init_w=self.init_wT, init_b=self.init_bT, npy_rng=npy_rng)
+                init_w=init_wT, init_b=init_bT, npy_rng=npy_rng)
         else:
             raise ValueError("vistype has to be either binary or real.")
         
@@ -155,7 +158,7 @@ class AutoEncoder(Model):
         
 
 class ZerobiasAutoencoder(AutoEncoder):
-    def __init__(self, n_in, n_out, threshold=1.0, vistype, varin=None, 
+    def __init__(self, n_in, n_out, vistype, threshold=1.0, varin=None, 
                  tie=True, init_w=None, init_wT=None, init_bT=None, 
                  npy_rng=None):
         super(ZerobiasAutoencoder, self).__init__(
@@ -164,15 +167,15 @@ class ZerobiasAutoencoder(AutoEncoder):
             npy_rng=None
         )
 
-        self.encoder = layer.ZerobiasLayer(n_in, n_out, threshold=threshold, 
+        self.encoder = ZerobiasLayer(n_in, n_out, threshold=threshold, 
             varin=self.varin, init_w=self.init_w, npy_rng=npy_rng)
         
         if self.vistype == 'binary':
-            self.decoder = layer.SigmoidLayer(
+            self.decoder = SigmoidLayer(
                 n_out, n_in, varin=self.encoder.output(), 
                 init_w=self.init_wT, init_b=self.init_bT, npy_rng=npy_rng)
         elif self.vistype == 'real':
-            self.decoder = layer.LinearLayer(
+            self.decoder = LinearLayer(
                 n_out, n_in, varin=self.encoder.output(),
                 init_w=self.init_wT, init_b=self.init_bT, npy_rng=npy_rng)
         else:

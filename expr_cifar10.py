@@ -1,13 +1,14 @@
-from layer import ZerobiasLayer
-from classifier import LogisticRegression
-from model import ZerobiasAutoencoder
-from dispims_color import dispims_color
-
-import train
+import os
 import numpy
 import theano
 import cPickle
 
+from layer import ZerobiasLayer
+from classifier import LogisticRegression
+from model import ZerobiasAutoencoder
+from dispims_color import dispims_color
+import train
+SMALL = 0.001
 
 def unpickle(file):
     fo = open(file, 'rb')
@@ -46,8 +47,8 @@ def pca(data, var_fraction, whiten=True):
     else: 
         backward_mapping = v[:,:numprincomps].T
         forward_mapping = v[:,:numprincomps]
-    return backward_mapping, forward_mapping, 
-           numpy.dot(v[:,:numprincomps], backward_mapping), 
+    return backward_mapping, forward_mapping, \
+           numpy.dot(v[:,:numprincomps], backward_mapping), \
            numpy.dot(forward_mapping, v[:,:numprincomps].T)
 
 
@@ -56,7 +57,9 @@ def pca(data, var_fraction, whiten=True):
 #############
 
 crnt_dir = os.getcwd()
-os.chdir('/home/hantek/data/cifar-10-batches-py')
+# os.chdir('/home/hantek/data/cifar-10-batches-py')
+os.chdir('/data/lisa/data/cifar10/cifar-10-batches-py')
+npy_rng = numpy.random.RandomState(123)
 train_x_list = []
 train_y_list = []
 for i in ["1"]:  #["1", "2", "3", "4", "5"]:
@@ -81,7 +84,7 @@ trainpatches = numpy.concatenate([
                      numpy.random.randint(patchsize/2, 32-patchsize/2, 40)]).T, 
         patchsize) for im in train_x
 ])
-R = rng.permutation(trainpatches.shape[0])
+R = npy_rng.permutation(trainpatches.shape[0])
 trainpatches = trainpatches[R, :]
 train_y = train_y.repeat(40)
 print "numpatches: ", trainpatches.shape[0]
@@ -109,8 +112,10 @@ trainpatches_theano = theano.shared(value=trainpatches_whitened,
 train_y_theano = theano.shared(value=train_y, 
                                name='target_y_data',
                                borrow=True)
+iaa = ZerobiasLayer(
+    432, 100, threshold=1., npy_rng=npy_rng
+)
 
-npy_rng = numpy.random.RandomState(123)
 model = ZerobiasLayer(
     432, 100, threshold=1., npy_rng=npy_rng
 ) + LogisticRegression(
@@ -146,7 +151,7 @@ trainer = train.GraddescentMinibatch(
     batchsize=100, learningrate=0.01, momentum=0.9, rng=npy_rng
 )
 
-for epoch in xrange(100):
+for epoch in xrange(10):
     trainer.step()
     if epoch % 10 == 0 and epoch > 0:
         trainer.set_learningrate(trainer.learningrate*0.8)
@@ -167,8 +172,15 @@ trainer = train.GraddescentMinibatch(
     truth=model.models_stack[-1].vartruth,
     truth_data=train_y_theano,
     supervised=True,
-    model=model, data=trainpatches_theano,
     batchsize=100, learningrate=0.01, momentum=0.9, rng=npy_rng
 )
 
-
+for epoch in xrange(10):
+    trainer.step()
+    if epoch % 10 == 0 and epoch > 0:
+        trainer.set_learningrate(trainer.learningrate*0.8)
+        dispims_color(
+            numpy.dot(
+                model.W.get_value().T, pca_forward.T
+            ).reshape(-1, patchsize, patchsize, 3), 1)
+        pylab.draw(); pylab.show()

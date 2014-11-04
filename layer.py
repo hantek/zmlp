@@ -108,9 +108,9 @@ class StackedLayer(Layer):
             if not previous_layer:  # First layer
                 layer_model.varin = self.varin
             else:
-                assert previous_layer.n_out == layer_model.n_in,
-                    "Stacked layer should match the input and output dimension"
-                    "with each other."
+                assert previous_layer.n_out == layer_model.n_in, \
+                    "Stacked layer should match the input and output" + \
+                    "dimension with each other."
                 layer_model.varin = previous_layer.output()
             previous_layer = layer_model
             self.params += layer_model.params
@@ -198,7 +198,7 @@ class LinearLayer(Layer):
 
 
 class ZerobiasLayer(Layer):
-    def __init__(n_in, n_out, threshold=1.0, varin=None, init_w=None, 
+    def __init__(self, n_in, n_out, threshold=1.0, varin=None, init_w=None, 
                  npy_rng=None):
         super(ZerobiasLayer, self).__init__(n_in, n_out, varin=varin)
         if not npy_rng:
