@@ -34,7 +34,7 @@ class GraddescentMinibatch(object):
         self.rng = rng
 
         self.epochcount = 0
-        self.index = T.lscalar() 
+        self.index = T.lscalar('batch_index_in_trainer') 
         self.incs = dict([(
             p, 
             theano.shared(value=numpy.zeros(p.get_value().shape, 
