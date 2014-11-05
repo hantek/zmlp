@@ -42,3 +42,6 @@ class StackedLayer(Layer):
         self.models_stack = models_stack
 
 snn = Layer(2, 3) + Layer(3, 2)
+
+consta = Layer(2, 3)
+consta.__init__(5, 7)
