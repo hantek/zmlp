@@ -16,7 +16,7 @@ class Classifier(Model):
     def __init__(self, n_in, n_out, varin=None, vartruth=None):
         super(Classifier, self).__init__(n_in, n_out, varin=varin)
         if not vartruth:
-            vartruth = T.ivector('truth')
+            vartruth = T.lvector('truth')
         assert isinstance(vartruth, T.TensorVariable)
         self.vartruth = vartruth
 
@@ -62,26 +62,51 @@ class Classifier(Model):
 class LogisticRegression(Classifier):
     def __init__(self, n_in, n_out, varin=None, vartruth=None, 
                  init_w=None, init_b=None, npy_rng=None):
-        super(LogisticRegression, self).__init__(n_in, n_out, 
-                                                 varin=varin,
-                                                 vartruth=vartruth)
-        self.layer = SigmoidLayer(
-            n_in, n_out, varin=varin, 
-            init_w=init_w, init_b=init_b, npy_rng=npy_rng
+        super(LogisticRegression, self).__init__(
+            n_in, n_out, varin=varin, vartruth=vartruth
         )
-        self.params = self.layer.params
-    
+        
+        if not npy_rng:
+            npy_rng = numpy.random.RandomState(123)
+        assert isinstance(npy_rng, numpy.random.RandomState)
+        self.npy_rng = npy_rng
+
+        if not init_w:
+            w = numpy.asarray(npy_rng.uniform(
+                low = -4 * numpy.sqrt(6. / (n_in + n_out)),
+                high = 4 * numpy.sqrt(6. / (n_in + n_out)),
+                size=(n_in, n_out)), dtype=theano.config.floatX)
+            self.w = theano.shared(value=w, name='w_sigmoid', borrow=True)
+        else:
+            # TODO. The following assetion is complaining about an attribute
+            # error while passing w.T to init_w. Considering using a more
+            # robust way of assertion in the future.
+            # assert init_w.get_value().shape == (n_in, n_out)
+            self.w = init_w
+
+        if not init_b:
+            self.b = theano.shared(value=numpy.zeros(n_out),
+                                   name='b_sigmoid', borrow=True)
+        else:
+            assert init_b.get_value().shape == (n_out,)
+            self.b = init_b
+
+        self.params = [self.w, self.b]
+
+
+    def fanin(self):
+        return SigmoidLayer(
+            self.n_in, self.n_out, varin=self.varin, 
+            init_w=self.w, init_b=self.b
+        ).fanin()
+
     def p_y_given_x(self):
-        return T.nnet.softmax(self.layer.fanin())
+        return T.nnet.softmax(self.fanin())
 
     def cost(self):
-        """
-        y_truth : theano.tensor.TensorType
-        The truth value of data. Usually y_truth = ivector('y_truth')
-        """
         return -T.mean(
             T.log(self.p_y_given_x())[
-                T.arange(self.vartruth.shape[0]), y]
+                T.arange(self.vartruth.shape[0]), self.vartruth]
         )
 
     def output(self):

@@ -53,22 +53,29 @@ class GraddescentMinibatch(object):
 
 
     def set_learningrate(self, learningrate):
+        """
+        TODO: set_learningrate() is not known to be working after 
+        initialization. Not checked. A unit test should be written on it.
+        """
         self.learningrate  = learningrate
-        self.inc_updates = {}  # inc_updates stands for how much we should 
+        self.inc_updates = []  # inc_updates stands for how much we should 
                                # update our parameters during each epoch.
                                # Due to momentum, the increasement itself is
                                # changing between epochs. Its increasing by:
                                # from (key) inc_params 
                                # to (value) momentum * inc_params - lr * grad
                                
-        self.updates = {}  # updates the parameters of model during each epoch.
+        self.updates = []  # updates the parameters of model during each epoch.
                            # from (key) params
                            # to (value) params + inc_params
                            
         for _param, _grad in zip(self.params, self.grad):
-            self.inc_updates[self.incs[_param]] = \
-                self.momentum * self.incs[_param] - self.learningrate * _grad
-            self.updates[_param] = _param + self.incs[_param]
+            self.inc_updates.append(
+                (self.incs[_param],
+                 self.momentum * self.incs[_param] - self.learningrate * _grad
+                )
+            )
+            self.updates.append((_param, _param + self.incs[_param]))
 
         if not self.supervised:
             self._updateincs = theano.function(

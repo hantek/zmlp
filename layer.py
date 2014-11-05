@@ -99,6 +99,9 @@ class StackedLayer(Layer):
             StackedLayer(...) + StackedLayer(...)
            we can get a StackedLayer object at its expression value.
         """
+        assert len(models_stack) > 1, "Warning: A Stacked Layer of empty " + \
+                                      "models or with only one layer is " + \
+                                      "trivial."
         for layer in models_stack:
             assert isinstance(layer, Layer), \
                 "All models in the models_stack list should be some " + \
@@ -109,7 +112,6 @@ class StackedLayer(Layer):
         )
 
         previous_layer = None
-        self.params = []
         for layer_model in models_stack:
             if not previous_layer:  # First layer
                 layer_model.varin = self.varin

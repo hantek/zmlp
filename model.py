@@ -47,8 +47,10 @@ class AutoEncoder(Model):
         """
 
         super(AutoEncoder, self).__init__(n_in, n_hid, varin=varin)
-        self.encoder = None  # To be implemented by subclass
-        self.decoder = None  # To be implemented by subclass
+        self.n_hid = self.n_out
+        
+        self.encoder = None
+        self.decoder = None
 
         # Note that we define this self.params_private member data to stand for
         # the "private" parameters for the autoencoder itself. i.e., parameters
@@ -72,6 +74,12 @@ class AutoEncoder(Model):
         else:
             raise ValueError("vistype has to be either 'binary' or 'real'.")
 
+    def encoder(self):
+        raise NotImplementedError("Must be implemented by subclass.")
+    
+    def decoder(self):
+        raise NotImplementedError("Must be implemented by subclass.")
+    
     def fanin(self):
         """
         The fanin of the first actual layer might still have sense. so keep it
@@ -171,7 +179,7 @@ class ZerobiasAutoencoder(AutoEncoder):
         # robust way of assertion in the future.
         # assert ((init_w == None) or \
         #     isinstance(init_w, theano.compile.sharedvalue.SharedVariable))
-        self.encoder = ZerobiasLayer(n_in, n_hid, threshold=threshold,
+        self.encoder = ZerobiasLayer(self.n_in, self.n_hid, threshold=threshold,
             varin=self.varin, init_w=init_w, npy_rng=npy_rng)
 
         assert ((init_bT == None) or \
@@ -187,12 +195,12 @@ class ZerobiasAutoencoder(AutoEncoder):
         #                       theano.compile.sharedvalue.SharedVariable)
         if self.vistype == 'binary':
             self.decoder = SigmoidLayer(
-                n_hid, n_in, varin=self.encoder.output(),
+                self.n_hid, self.n_in, varin=self.encoder.output(),
                 init_w=init_wT, init_b=init_bT, npy_rng=npy_rng
             )
         elif self.vistype == 'real':
             self.decoder = LinearLayer(
-                n_hid, n_in, varin=self.encoder.output(),
+                self.n_hid, self.n_in, varin=self.encoder.output(),
                 init_w=init_wT, init_b=init_bT, npy_rng=npy_rng
             )
 

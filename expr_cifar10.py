@@ -10,7 +10,6 @@ from dispims_color import dispims_color
 import train
 SMALL = 0.001
 
-import pdb
 
 def unpickle(file):
     fo = open(file, 'rb')
@@ -119,7 +118,7 @@ train_y_theano = theano.shared(value=train_y,
                                borrow=True)
 
 model = ZerobiasAutoencoder(
-    432, 100, threshold=1., vistype='real', tie=True, npy_rng=npy_rng
+    43, 100, threshold=1., vistype='real', tie=True, npy_rng=npy_rng
 ) + LogisticRegression(
     100, 10, npy_rng=npy_rng
 )
@@ -130,7 +129,6 @@ model = ZerobiasAutoencoder(
 
 # DO SOME STEPS WITH SMALL LEARNING RATE TO MAKE SURE THE INITIALIZATION IS IN 
 # A REASONABLE RANGE
-pdb.set_trace()
 trainer = train.GraddescentMinibatch(
     varin=model.varin, data=trainpatches_theano, 
     cost=model.models_stack[0].cost(),
@@ -164,11 +162,10 @@ for epoch in xrange(10):
 #############
 # FINE-TUNE #
 #############
-
 trainer = train.GraddescentMinibatch(
     varin=model.varin, data=trainpatches_theano, 
     cost=model.models_stack[-1].cost(),
-    params=pretrain_model.params,
+    params=model.params,
     truth=model.models_stack[-1].vartruth,
     truth_data=train_y_theano,
     supervised=True,
