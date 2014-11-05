@@ -11,6 +11,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+
 class Layer(object):
     def __init__(self, n_in, n_out, varin=None):
         """
@@ -25,7 +26,7 @@ class Layer(object):
         """
         self.n_in = n_in
         self.n_out = n_out
-        
+
         if not varin:
             varin = T.matrix('varin')
         assert isinstance(varin, T.TensorVariable)
@@ -35,19 +36,18 @@ class Layer(object):
 
     def fanin(self):
         raise NotImplementedError("Must be implemented by subclass.")
-    
+
     def output(self):
         raise NotImplementedError("Must be implemented by subclass.")
-   
+
     def __add__(self, other):
-        """
-        It is used for conveniently construct stacked layers.
-        """
+        """It is used for conveniently construct stacked layers."""
         if isinstance(other, Layer):
             return StackedLayer(models_stack=[self, other], 
                                 varin=self.varin)
         else:
             raise SyntaxError("Addition not defined.")
+
 
     # Following are for analysis ----------------------------------------------
 
@@ -84,6 +84,7 @@ class Layer(object):
         else:
             plt.savefig(filename)
 
+
 class StackedLayer(Layer):
     def __init__(self, models_stack=[], varin=None):
         """
@@ -93,15 +94,20 @@ class StackedLayer(Layer):
         2. StackedLayer as a whole can be viewed as a 1-layer model.
         3. By calling 
             Layer(...) + Layer(...), 
-            Layer(...) + StackedLayer(...), or
-            Layer(...) + StackedLayer(...) 
+            Layer(...) + StackedLayer(...)
+            StackedLayer(...) + Layer(...), or
+            StackedLayer(...) + StackedLayer(...)
            we can get a StackedLayer object at its expression value.
         """
-        # TODO: assert class type of passed models_stack.
-        super(StackedLayer, self).__init__(n_in=models_stack[0].n_in, 
-                         n_out=models_stack[-1].n_out, 
-                         varin=varin)
-        
+        for layer in models_stack:
+            assert isinstance(layer, Layer), \
+                "All models in the models_stack list should be some " + \
+                "subclass of Layer"
+        super(StackedLayer, self).__init__(
+            n_in=models_stack[0].n_in, n_out=models_stack[-1].n_out,
+            varin=varin
+        )
+
         previous_layer = None
         self.params = []
         for layer_model in models_stack:
@@ -109,7 +115,7 @@ class StackedLayer(Layer):
                 layer_model.varin = self.varin
             else:
                 assert previous_layer.n_out == layer_model.n_in, \
-                    "Stacked layer should match the input and output" + \
+                    "Stacked layer should match the input and output " + \
                     "dimension with each other."
                 layer_model.varin = previous_layer.output()
             previous_layer = layer_model
@@ -122,10 +128,16 @@ class StackedLayer(Layer):
     def fanin(self):
         """
         The fanin for a StackedLayer is defined as the fanin of its first layer.
+        It's automatically in a recursive way, too.
         """
         return models_stack[0].fanin()
 
     def output(self):
+        """
+        This method is automatically in a recursive way. Think about what will
+        happen if we call this function on a StackedLayer object whose last
+        layer model is still a StackedLayer object.
+        """
         return models_stack[-1].output()
 
 
@@ -144,9 +156,9 @@ class SigmoidLayer(Layer):
                 size=(n_in, n_out)), dtype=theano.config.floatX)
             self.w = theano.shared(value=w, name='w_sigmoid', borrow=True)
         else:
-            # The following assetion is complaining about an attribute error
-            # while passing w.T to it. Considering using a more robust way
-            # of assertion in the future. TODO.
+            # TODO. The following assetion is complaining about an attribute
+            # error while passing w.T to init_w. Considering using a more
+            # robust way of assertion in the future.
             # assert init_w.get_value().shape == (n_in, n_out)
             self.w = init_w
 
@@ -181,9 +193,9 @@ class LinearLayer(Layer):
                 size=(n_in, n_out)), dtype=theano.config.floatX)
             self.w = theano.shared(value=w, name='w_linear', borrow=True)
         else:
-            # The following assetion is complaining about an attribute error
-            # while passing w.T to it. Considering using a more robust way
-            # of assertion in the future. TODO.
+            # TODO. The following assetion is complaining about an attribute
+            # error while passing w.T to init_w. Considering using a more
+            # robust way of assertion in the future.
             # assert init_w.get_value().shape == (n_in, n_out)
             self.w = init_w
 
@@ -218,9 +230,9 @@ class ZerobiasLayer(Layer):
                 size=(n_in, n_out)), dtype=theano.config.floatX)
             self.w = theano.shared(value=w, name='w_zerobias', borrow=True)
         else:
-            # The following assetion is complaining about an attribute error
-            # while passing w.T to it. Considering using a more robust way
-            # of assertion in the future. TODO.
+            # TODO. The following assetion is complaining about an attribute
+            # error while passing w.T to init_w. Considering using a more
+            # robust way of assertion in the future.
             # assert init_w.get_value().shape == (n_in, n_out)
             self.w = init_w
         self.params = [self.w]
@@ -233,6 +245,7 @@ class ZerobiasLayer(Layer):
     def output(self):
         return (self.fanin() > self.threshold) * self.fanin()
 
+
 class TanhLayer(Layer):
     def __init__(self):
         raise NotImplementedError("Not implemented yet...")
@@ -241,8 +254,3 @@ class TanhLayer(Layer):
 class GatedLinearLayer(Layer):
     def __init__(self):
         raise NotImplementedError("Not implemented yet...")
-
-
-if __name__ == "__main__":
-    a = Layer(2, 3)
-

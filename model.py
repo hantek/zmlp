@@ -20,7 +20,7 @@ class Model(Layer):
     """
     def __init__(self, n_in, n_out, varin=None):
         super(Model, self).__init__(n_in, n_out, varin=varin)
-    
+
     def fanin(self):
         print "Calling the fan-in of a base model might have no meaning."
 
@@ -32,57 +32,52 @@ class Model(Layer):
 
 
 class AutoEncoder(Model):
-    def __init__(self, n_in, n_out, vistype, varin=None, tie=True, 
-                 init_w=None, init_wT=None, init_b=None, init_bT=None, 
-                 npy_rng=None):
+    def __init__(self, n_in, n_hid, vistype, varin=None):
         """
-        By default the encoder and decoder are both set to be sigmoid layers. 
-        Users can overide it to be other kind of layers in ther subclass.
+        The autoencoder ADT defines a 2-layer structure (both layer might be
+        a StackedLayer object, in that way it will have more than 2 actual
+        layers) which allows for reconstructing the input from middle hidden
+        layers.
+
+        It's better to construct an autoencoder by constructing an instance of a
+        certain autoencoder class instead of using "+" between two already
+        instanciated encoder and decoder. Because that helps dealing with a lot
+        of parameter settings and guarantees a bunch of autoencoder-specific
+        methods, along with analyzing & visualizing methods.
         """
-        super(AutoEncoder, self).__init__(n_in, n_out, varin)
 
-        # assert ((init_w == None) or \
-        #     isinstance(init_w, theano.compile.sharedvalue.SharedVariable))
-        assert ((init_b == None) or \
-            isinstance(init_b, theano.compile.sharedvalue.SharedVariable))
-        assert ((init_bT == None) or \
-            isinstance(init_bT, theano.compile.sharedvalue.SharedVariable))
-        self.init_w = init_w
-        self.init_b = init_w
-        self.init_bT = init_bT
+        super(AutoEncoder, self).__init__(n_in, n_hid, varin=varin)
+        self.encoder = None  # To be implemented by subclass
+        self.decoder = None  # To be implemented by subclass
 
-        if tie:
-            assert init_wT == None, "Tied autoencoder do not accept init_wT."
-            init_wT = init_w.T
-        self.init_wT = init_wT
-        # else:
-        #     assert isinstance(init_wT, 
-        #                       theano.compile.sharedvalue.SharedVariable)
-        
-        self.vistype = vistype
-        if self.vistype == 'binary':
-            self.encoder = SigmoidLayer(n_in, n_out, varin=self.varin, 
-                init_w=init_w, init_b=init_b, npy_rng=npy_rng)
-            self.decoder = SigmoidLayer(
-                n_out, n_in, varin=self.encoder.output(), 
-                init_w=init_wT, init_b=init_bT, npy_rng=npy_rng)
-        elif self.vistype == 'real':
-            self.encoder = LinearLayer(n_in, n_out, varin=self.varin, 
-                init_w=init_w, init_b=init_b, npy_rng=npy_rng)
-            self.decoder = LinearLayer(
-                n_out, n_in, varin=self.encoder.output(), 
-                init_w=init_wT, init_b=init_bT, npy_rng=npy_rng)
-        else:
-            raise ValueError("vistype has to be either binary or real.")
-        
-        if tie:
-            self.params = self.encoder.params + [self.decoder.b]
-        else:
-            self.params = self.encoder.params + self.decoder.params
+        # Note that we define this self.params_private member data to stand for
+        # the "private" parameters for the autoencoder itself. i.e., parameters
+        # in BOTH the encoder and decoder. This is ONLY for layerwise training
+        # the autoencoder itself  while it were stacked into a deep structure.
+        self.params_private = self.params + []
+
+        # While, for self.params, we only include parameters of the encoder.
+        # Defining self.params and self.params_private in this way helps
+        # collecting "params" member data (which is for training the whole
+        # network in the final fine-tuning stage.) while stacking layers.
 
         # for plotting
-        self.rangex=[0., 1.]
-        self.rangey=[0., 1.]
+        self.vistype = vistype
+        if vistype == 'binary':
+            self.rangex=[0., 1.]
+            self.rangey=[0., 1.]
+        elif vistype == 'real':
+            self.rangex=[-1., 1.]
+            self.rangey=[-1., 1.]
+        else:
+            raise ValueError("vistype has to be either 'binary' or 'real'.")
+
+    def fanin(self):
+        """
+        The fanin of the first actual layer might still have sense. so keep it
+        here.
+        """
+        return self.encoder.fanin()
 
     def hidden(self):
         return self.encoder.output()
@@ -90,7 +85,9 @@ class AutoEncoder(Model):
     def output(self):
         """
         Setting the output in this manner helps stacking the encoders in a 
-        convenient way.
+        convenient way. That allows you to get a StackedLayer object which only
+        contains the encoder part in the returned deep structure while calling
+            ... + Autoencoder(...) + Layer(...) + ...
         """
         return self.hidden()
 
@@ -117,7 +114,7 @@ class AutoEncoder(Model):
 
 
     # Following are for analysis -----------------------------------------------
-    
+
     def score(self, fig_handle=None):
         assert self.n_in == 2, "Cannot draw score for higher dimentions."
         #
@@ -135,7 +132,7 @@ class AutoEncoder(Model):
                 self.ax = self._fig_quiver.add_subplot(111)
                 self._get_reconstruction = theano.function(
                     [self.encoder.varin], self.reconstruction())
-            
+
             self.rangex = rangex
             self.rangey = rangey
             np_x, np_y = numpy.meshgrid(
@@ -159,33 +156,48 @@ class AutoEncoder(Model):
             quiver_y = diff[:, 1].reshape(dpi, dpi)
             self.Q.set_UVC(quiver_x, quiver_y)
             self._fig_quiver.canvas.draw()
-        
+
 
 class ZerobiasAutoencoder(AutoEncoder):
-    def __init__(self, n_in, n_out, vistype, threshold=1.0, varin=None, 
+    def __init__(self, n_in, n_hid, vistype, threshold=1.0, varin=None,
                  tie=True, init_w=None, init_wT=None, init_bT=None, 
                  npy_rng=None):
         super(ZerobiasAutoencoder, self).__init__(
-            n_in, n_out, vistype, varin=varin, tie=tie, 
-            init_w=init_w, init_wT=init_wT, init_b=None, init_bT=None,
-            npy_rng=None
+            n_in, n_hid, vistype=vistype, varin=varin
         )
 
-        self.encoder = ZerobiasLayer(n_in, n_out, threshold=threshold, 
+        # TODO. The following assetion is complaining about an assertion
+        # error while passing w.T to init_w. Considering using a more
+        # robust way of assertion in the future.
+        # assert ((init_w == None) or \
+        #     isinstance(init_w, theano.compile.sharedvalue.SharedVariable))
+        self.encoder = ZerobiasLayer(n_in, n_hid, threshold=threshold,
             varin=self.varin, init_w=init_w, npy_rng=npy_rng)
-        
+
+        assert ((init_bT == None) or \
+            isinstance(init_bT, theano.compile.sharedvalue.SharedVariable))
+        if tie:
+            assert init_wT == None, "Tied autoencoder do not accept init_wT."
+            init_wT = self.encoder.w.T
+        # else:
+        # TODO. The following assetion is complaining about an assertion
+        # error while passing w.T to init_w. Considering using a more
+        # robust way of assertion in the future.
+        #     assert isinstance(init_wT,
+        #                       theano.compile.sharedvalue.SharedVariable)
         if self.vistype == 'binary':
             self.decoder = SigmoidLayer(
-                n_out, n_in, varin=self.encoder.output(), 
-                init_w=self.init_wT, init_b=self.init_bT, npy_rng=npy_rng)
+                n_hid, n_in, varin=self.encoder.output(),
+                init_w=init_wT, init_b=init_bT, npy_rng=npy_rng
+            )
         elif self.vistype == 'real':
             self.decoder = LinearLayer(
-                n_out, n_in, varin=self.encoder.output(),
-                init_w=self.init_wT, init_b=self.init_bT, npy_rng=npy_rng)
-        else:
-            raise ValueError("vistype has to be either binary or real.")
+                n_hid, n_in, varin=self.encoder.output(),
+                init_w=init_wT, init_b=init_bT, npy_rng=npy_rng
+            )
 
+        self.params = self.encoder.params
         if tie:
-            self.params = self.encoder.params + [self.decoder.b]
+            self.params_private = self.encoder.params + [self.decoder.b]
         else:
-            self.params = self.encoder.params + self.decoder.params
+            self.params_private = self.encoder.params + self.decoder.params

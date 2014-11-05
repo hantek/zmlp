@@ -82,8 +82,8 @@ class GraddescentMinibatch(object):
             )
         else:
             self._updateincs = theano.function(
-                inputs = [self.index], 
-                outputs = self.cost, 
+                inputs = [self.index],
+                outputs = self.cost,
                 updates = self.inc_updates,
                 givens = {
                     self.varin : self.data[self.index * self.batchsize: \

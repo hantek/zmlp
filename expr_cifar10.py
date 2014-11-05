@@ -10,6 +10,8 @@ from dispims_color import dispims_color
 import train
 SMALL = 0.001
 
+import pdb
+
 def unpickle(file):
     fo = open(file, 'rb')
     dictionary = cPickle.load(fo)
@@ -57,8 +59,8 @@ def pca(data, var_fraction, whiten=True):
 #############
 
 crnt_dir = os.getcwd()
-os.chdir('/home/hantek/data/cifar-10-batches-py')
-# os.chdir('/data/lisa/data/cifar10/cifar-10-batches-py')
+# os.chdir('/home/hantek/data/cifar-10-batches-py')
+os.chdir('/data/lisa/data/cifar10/cifar-10-batches-py')
 npy_rng = numpy.random.RandomState(123)
 train_x_list = []
 train_y_list = []
@@ -94,13 +96,16 @@ print "done"
 print "whitening"
 meanstd = trainpatches.std()
 trainpatches -= trainpatches.mean(1)[:,None]  # subtract mean of each patch
-trainpatches /= trainpatches.std(1)[:,None] + 0.1 * meanstd  # 
+# The latter term is just for avoiding zero devidor error 
+trainpatches /= trainpatches.std(1)[:,None] + 0.1 * meanstd  
 trainpatches_mean = trainpatches.mean(0)[None,:]
 trainpatches_std = trainpatches.std(0)[None,:] 
 trainpatches -= trainpatches_mean  # subtract mean of each pixel 
 trainpatches /= trainpatches_std + 0.1 * meanstd
 pca_backward, _, _, _ = pca(trainpatches, 0.9, whiten=True)
-trainpatches_whitened = numpy.dot(trainpatches, pca_backward.T).astype("float32")
+trainpatches_whitened = numpy.dot(
+    trainpatches, pca_backward.T
+).astype(theano.config.floatX)
 
 ###############
 # BUILD MODEL #
@@ -112,12 +117,9 @@ trainpatches_theano = theano.shared(value=trainpatches_whitened,
 train_y_theano = theano.shared(value=train_y, 
                                name='target_y_data',
                                borrow=True)
-iaa = ZerobiasLayer(
-    432, 100, threshold=1., npy_rng=npy_rng
-)
 
-model = ZerobiasLayer(
-    432, 100, threshold=1., npy_rng=npy_rng
+model = ZerobiasAutoencoder(
+    432, 100, threshold=1., vistype='real', tie=True, npy_rng=npy_rng
 ) + LogisticRegression(
     100, 10, npy_rng=npy_rng
 )
@@ -126,17 +128,13 @@ model = ZerobiasLayer(
 # PRE-TRAIN #
 #############
 
-pretrain_model = ZerobiasAutoencoder(
-    432, 100, threshold=1., vistype='binary', tie=True, 
-    init_w=model.models_stack[0].w, npy_rng=npy_rng
-)
-
 # DO SOME STEPS WITH SMALL LEARNING RATE TO MAKE SURE THE INITIALIZATION IS IN 
 # A REASONABLE RANGE
+pdb.set_trace()
 trainer = train.GraddescentMinibatch(
-    varin=pretrain_model.varin, data=trainpatches_theano, 
-    cost=pretrain_model.cost(),
-    params=pretrain_model.params,
+    varin=model.varin, data=trainpatches_theano, 
+    cost=model.models_stack[0].cost(),
+    params=model.models_stack[0].params_private,
     supervised=False,
     batchsize=100, learningrate=0.0001, momentum=0.9, rng=npy_rng
 )
@@ -144,9 +142,9 @@ trainer.step(); trainer.step(); trainer.step()
 
 # TRAIN THE MODEL FOR REAL, AND SHOW FILTERS
 trainer = train.GraddescentMinibatch(
-    varin=pretrain_model.varin, data=trainpatches_theano, 
-    cost=pretrain_model.cost(),
-    params=pre_train_model.params,
+    varin=model.varin, data=trainpatches_theano, 
+    cost=model.models_stack[0].cost(),
+    params=model.models_stack[0].params_private,
     supervised=False,
     batchsize=100, learningrate=0.01, momentum=0.9, rng=npy_rng
 )
@@ -158,7 +156,9 @@ for epoch in xrange(10):
         dispims_color(
             numpy.dot(
                 model.W.get_value().T, pca_forward.T
-            ).reshape(-1, patchsize, patchsize, 3), 1)
+            ).reshape(-1, patchsize, patchsize, 3), 
+            1
+        )
         pylab.draw(); pylab.show()
 
 #############
