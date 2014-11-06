@@ -24,13 +24,13 @@ class Classifier(Model):
         """The input and output should always be theano variables."""
         raise NotImplementedError("Must be implemented by subclass.")
 
-    
+
     # Following are for analysis ----------------------------------------------
-    
+
     def analyze_performance(self, data, truth, verbose=True):
         """
         TODO: WRITEME
-        
+
         data : numpy.ndarray
         truth : numpy.ndarray
         verbose : bool
@@ -38,7 +38,7 @@ class Classifier(Model):
         assert data.shape[0] == truth.shape[0], "Data and truth shape mismatch."
         if not hasattr(self, '_get_output'):
             self._get_output = theano.function([self.varin], self.output())
-        
+
         cm = confusion_matrix(truth, self.get_output(data))
         pr_a = cm.trace()*1.0 / test_truth.size
         pr_e = ((cm.sum(axis=0)*1.0 / test_truth.size) * \
@@ -65,7 +65,7 @@ class LogisticRegression(Classifier):
         super(LogisticRegression, self).__init__(
             n_in, n_out, varin=varin, vartruth=vartruth
         )
-        
+
         if not npy_rng:
             npy_rng = numpy.random.RandomState(123)
         assert isinstance(npy_rng, numpy.random.RandomState)
@@ -76,20 +76,20 @@ class LogisticRegression(Classifier):
                 low = -4 * numpy.sqrt(6. / (n_in + n_out)),
                 high = 4 * numpy.sqrt(6. / (n_in + n_out)),
                 size=(n_in, n_out)), dtype=theano.config.floatX)
-            self.w = theano.shared(value=w, name='w_sigmoid', borrow=True)
-        else:
-            # TODO. The following assetion is complaining about an attribute
-            # error while passing w.T to init_w. Considering using a more
-            # robust way of assertion in the future.
-            # assert init_w.get_value().shape == (n_in, n_out)
-            self.w = init_w
+            init_w = theano.shared(value=w, name='w_sigmoid', borrow=True)
+        # else:
+        #     TODO. The following assetion is complaining about an attribute
+        #     error while passing w.T to init_w. Considering using a more
+        #     robust way of assertion in the future.
+        #     assert init_w.get_value().shape == (n_in, n_out)
+        self.w = init_w
 
         if not init_b:
-            self.b = theano.shared(value=numpy.zeros(n_out),
+            init_b = theano.shared(value=numpy.zeros(n_out),
                                    name='b_sigmoid', borrow=True)
         else:
             assert init_b.get_value().shape == (n_out,)
-            self.b = init_b
+        self.b = init_b
 
         self.params = [self.w, self.b]
 

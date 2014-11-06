@@ -156,20 +156,20 @@ class SigmoidLayer(Layer):
                 low = -4 * numpy.sqrt(6. / (n_in + n_out)),
                 high = 4 * numpy.sqrt(6. / (n_in + n_out)),
                 size=(n_in, n_out)), dtype=theano.config.floatX)
-            self.w = theano.shared(value=w, name='w_sigmoid', borrow=True)
-        else:
-            # TODO. The following assetion is complaining about an attribute
-            # error while passing w.T to init_w. Considering using a more
-            # robust way of assertion in the future.
-            # assert init_w.get_value().shape == (n_in, n_out)
-            self.w = init_w
+            init_w = theano.shared(value=w, name='w_sigmoid', borrow=True)
+        # else:
+        #     TODO. The following assetion is complaining about an attribute
+        #     error while passing w.T to init_w. Considering using a more
+        #     robust way of assertion in the future.
+        #     assert init_w.get_value().shape == (n_in, n_out)
+        self.w = init_w
 
         if not init_b:
-            self.b = theano.shared(value=numpy.zeros(n_out),
+            init_b = theano.shared(value=numpy.zeros(n_out),
                                    name='b_sigmoid', borrow=True)
         else:
             assert init_b.get_value().shape == (n_out,)
-            self.b = init_b
+        self.b = init_b
 
         self.params = [self.w, self.b]
 
@@ -193,20 +193,20 @@ class LinearLayer(Layer):
                 low = -4 * numpy.sqrt(6. / (n_in + n_out)),
                 high = 4 * numpy.sqrt(6. / (n_in + n_out)),
                 size=(n_in, n_out)), dtype=theano.config.floatX)
-            self.w = theano.shared(value=w, name='w_linear', borrow=True)
-        else:
-            # TODO. The following assetion is complaining about an attribute
-            # error while passing w.T to init_w. Considering using a more
-            # robust way of assertion in the future.
-            # assert init_w.get_value().shape == (n_in, n_out)
-            self.w = init_w
+            init_w = theano.shared(value=w, name='w_linear', borrow=True)
+        # else:
+        #     TODO. The following assetion is complaining about an attribute
+        #     error while passing w.T to init_w. Considering using a more
+        #     robust way of assertion in the future.
+        #     assert init_w.get_value().shape == (n_in, n_out)
+        self.w = init_w
 
         if not init_b:
-            self.b = theano.shared(value=numpy.zeros(n_out),
+            init_b = theano.shared(value=numpy.zeros(n_out),
                                    name='b_linear', borrow=True)
         else:
             assert init_b.get_value().shape == (n_out,)
-            self.b = init_b
+        self.b = init_b
 
         self.params = [self.w, self.b]
 
@@ -230,15 +230,15 @@ class ZerobiasLayer(Layer):
                 low=-4 * numpy.sqrt(6. / (n_in + n_out)),
                 high=4 * numpy.sqrt(6. / (n_in + n_out)),
                 size=(n_in, n_out)), dtype=theano.config.floatX)
-            self.w = theano.shared(value=w, name='w_zerobias', borrow=True)
-        else:
-            # TODO. The following assetion is complaining about an attribute
-            # error while passing w.T to init_w. Considering using a more
-            # robust way of assertion in the future.
-            # assert init_w.get_value().shape == (n_in, n_out)
-            self.w = init_w
-        self.params = [self.w]
+            init_w = theano.shared(value=w, name='w_zerobias', borrow=True)
+        # else:
+        #     TODO. The following assetion is complaining about an attribute
+        #     error while passing w.T to init_w. Considering using a more
+        #     robust way of assertion in the future.
+        #     assert init_w.get_value().shape == (n_in, n_out)
+        self.w = init_w
 
+        self.params = [self.w]
         self.threshold = threshold
 
     def fanin(self):
