@@ -1,4 +1,3 @@
-import pylab
 import numpy
 import numpy.random
 import theano
@@ -12,21 +11,33 @@ class GraddescentMinibatch(object):
                  batchsize=100, learningrate=0.1, momentum=0.9, 
                  rng=None, verbose=True):
         """
-        Using stochastic gradient descent on data in a minibatch update manner.
+        Using stochastic gradient descent with momentum on data in a minibatch
+        update manner.
         """
-        # TODO: check datatype and dependencies between varin, cost, and param.
+        
+        # TODO: check dependencies between varin, cost, and param.
+        
+        assert isinstance(varin, T.TensorVariable)
+        assert isinstance(data, T.sharedvar.TensorSharedVariable)
+        assert isinstance(cost, T.TensorVariable)
+        assert isinstance(params, list)
         self.varin         = varin
         self.data          = data
-        self.cost          = cost  # Be careful with it. It might be the return
-                                   # value of a method which have "truth" 
-                                   # in its parameter.
+        self.cost          = cost
         self.params        = params
+        
+        if supervised:
+            assert isinstance(truth_data, T.sharedvar.TensorSharedVariable)
+            assert isinstance(truth, T.TensorVariable)
+            self.truth_data = truth_data
+            self.truth = truth
         
         self.verbose       = verbose
         self.batchsize     = batchsize
         self.numbatches    = self.data.get_value().shape[0] / batchsize
         self.momentum      = momentum 
         self.supervised    = supervised
+        
         if rng is None:
             rng = numpy.random.RandomState(1)
         assert isinstance(rng, numpy.random.RandomState), \
@@ -34,19 +45,15 @@ class GraddescentMinibatch(object):
         self.rng = rng
 
         self.epochcount = 0
-        self.index = T.lscalar('batch_index_in_trainer') 
+        self.index = T.lscalar('batch_index_in_sgd') 
         self.incs = dict([(
             p, 
             theano.shared(value=numpy.zeros(p.get_value().shape, 
                                             dtype=theano.config.floatX),
-                          name='inc_' + p.name)
+                          name='inc_' + p.name,
+                          broadcastable=p.broadcastable)
         ) for p in self.params])
 
-        if supervised:
-            assert isinstance(truth_data, T.sharedvar.TensorSharedVariable)
-            assert isinstance(truth, T.TensorVariable)
-            self.truth_data = truth_data
-            self.truth = truth
         self.grad = T.grad(self.cost, self.params)
 
         self.set_learningrate(learningrate)
@@ -58,9 +65,9 @@ class GraddescentMinibatch(object):
         initialization. Not checked. A unit test should be written on it.
         """
         self.learningrate  = learningrate
-        self.inc_updates = []  # inc_updates stands for how much we should 
-                               # update our parameters during each epoch.
-                               # Due to momentum, the increasement itself is
+        self.inc_updates = []  # updates the parameter increasements (i.e. 
+                               # value in the self.incs dictionary.). Due to 
+                               # momentum, the increasement itself is
                                # changing between epochs. Its increasing by:
                                # from (key) inc_params 
                                # to (value) momentum * inc_params - lr * grad
@@ -124,4 +131,6 @@ class GraddescentMinibatch(object):
 
         self.epochcount += 1
         if self.verbose:
-            print 'epoch: %d, cost: %f' % (self.epochcount, cost)
+            print 'epoch: %d, lr: %f, cost: %f' % (
+                self.epochcount, self.learningrate, cost
+            )

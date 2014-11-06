@@ -6,7 +6,7 @@ import theano
 import theano.tensor as T
 from sklearn.metrics import confusion_matrix
 import matplotlib
-matplotlib.use('Agg')
+# matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from model import Model
 from layer import SigmoidLayer

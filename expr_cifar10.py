@@ -101,7 +101,7 @@ trainpatches_mean = trainpatches.mean(0)[None,:]
 trainpatches_std = trainpatches.std(0)[None,:] 
 trainpatches -= trainpatches_mean  # subtract mean of each pixel 
 trainpatches /= trainpatches_std + 0.1 * meanstd
-pca_backward, _, _, _ = pca(trainpatches, 0.9, whiten=True)
+pca_backward, pca_forward, _, _ = pca(trainpatches, 0.9, whiten=True)
 trainpatches_whitened = numpy.dot(
     trainpatches, pca_backward.T
 ).astype(theano.config.floatX)
@@ -137,6 +137,8 @@ trainer = train.GraddescentMinibatch(
     batchsize=100, learningrate=0.0001, momentum=0.9, rng=npy_rng
 )
 trainer.step(); trainer.step(); trainer.step()
+trainer.step(); trainer.step(); trainer.step()
+trainer.step(); trainer.step(); trainer.step()
 
 # TRAIN THE MODEL FOR REAL, AND SHOW FILTERS
 trainer = train.GraddescentMinibatch(
@@ -147,17 +149,16 @@ trainer = train.GraddescentMinibatch(
     batchsize=100, learningrate=0.01, momentum=0.9, rng=npy_rng
 )
 
-for epoch in xrange(10):
+for epoch in xrange(100):
     trainer.step()
     if epoch % 10 == 0 and epoch > 0:
         trainer.set_learningrate(trainer.learningrate*0.8)
         dispims_color(
             numpy.dot(
-                model.W.get_value().T, pca_forward.T
+                model.w.get_value().T, pca_forward.T
             ).reshape(-1, patchsize, patchsize, 3), 
             1
         )
-        pylab.draw(); pylab.show()
 
 #############
 # FINE-TUNE #
@@ -172,12 +173,13 @@ trainer = train.GraddescentMinibatch(
     batchsize=100, learningrate=0.01, momentum=0.9, rng=npy_rng
 )
 
-for epoch in xrange(10):
+for epoch in xrange(100):
     trainer.step()
     if epoch % 10 == 0 and epoch > 0:
         trainer.set_learningrate(trainer.learningrate*0.8)
         dispims_color(
             numpy.dot(
-                model.W.get_value().T, pca_forward.T
-            ).reshape(-1, patchsize, patchsize, 3), 1)
-        pylab.draw(); pylab.show()
+                model.w.get_value().T, pca_forward.T
+            ).reshape(-1, patchsize, patchsize, 3), 
+            1
+        )
