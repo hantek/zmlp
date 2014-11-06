@@ -1,6 +1,10 @@
 """
 This file provides a general solutions for passing numerical values between mod-
 els and saving/loading parameters with files.
+
+TODO:
+Consider to use pkl and tar.gz to store param list of numpy.ndarrays.
+Deal with params_private problem.
 """
 import numpy
 import theano
