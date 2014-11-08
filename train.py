@@ -121,13 +121,142 @@ class GraddescentMinibatch(object):
         #     x[:,:] *= mask
         #     return x
 
-        cost = 0.0
         stepcount = 0.0
         for batch_index in self.rng.permutation(self.numbatches - 1):
             stepcount += 1.0
+            # This is Roland's way of computing cost, still mean over all
+            # batches. It saves space and don't harm computing time... 
+            # But a little bit unfamilliar to understand at first glance.
             cost = (1.0 - 1.0/stepcount) * cost + \
                    (1.0/stepcount) * self._updateincs(batch_index)
             self._trainmodel(0)
+
+        self.epochcount += 1
+        if self.verbose:
+            print 'epoch: %d, lr: %f, cost: %f' % (
+                self.epochcount, self.learningrate, cost
+            )
+
+
+class FeedbackAlignment(object):
+    def __init__(self, model, data, truth_data, 
+                 batchsize=100, learningrate=0.1, rng=None, verbose=True):
+        """
+        It is designed for linear stacked layers, but not sure if it will work
+        for nonlinear networks. So currently the code is only working on linear
+        layers.
+
+        Cost is defined intrinsicaly as the MSE between target y vector and 
+        real y vector at the top layer.
+
+        Parameters:
+        ------------
+        model : StackedLayer
+
+        data : theano.compile.SharedVariable
+        
+        truth_data : theano.compile.SharedVariable
+        """
+        assert isinstance(data, T.sharedvar.TensorSharedVariable)
+        assert isinstance(truth_data, T.sharedvar.TensorSharedVariable)
+        self.varin         = model.models_stack[0].varin
+        self.truth         = model.models_stack[-1].vartruth
+        self.data          = data
+        self.truth_data    = truth_data
+        self.output        = model.models_stack[-1].output()
+        self.verbose       = verbose
+        self.batchsize     = batchsize
+        self.numbatches    = self.data.get_value().shape[0] / batchsize
+        
+        if rng is None:
+            rng = numpy.random.RandomState(1)
+        assert isinstance(rng, numpy.random.RandomState), \
+            "rng has to be a random number generater."
+        self.rng = rng
+
+        self.error = self.vartruth - self.output
+        
+        # set fixed random matrix
+        self.fixed_B = [None, ]
+        # assert isinstance(models_stack[0], LinearLayer)
+        for imod in models_stack[1:]:
+            # assert isinstance(imod, LinearLayer)
+            i_layer_B = []
+            for ipar in imod.params:
+                rnd = numpy.asarray(
+                    self.rng.uniform(
+                        low = -4 * numpy.sqrt(6. / (imod.n_in + imod.n_out)),
+                        high = 4 * numpy.sqrt(6. / (imod.n_in + imod.n_out)),
+                        size = ipar.get_value().shape
+                    ), 
+                    dtype=ipar.dtype
+                )
+ 
+                i_layer_B.append(
+                    theano.shared(value = rnd, name=ipar.name + '_fixed',
+                                  borrow=True)
+                )
+            self.fixed_B.append(i_layer_B)
+
+        self.epochcount = 0
+        self.index = T.lscalar('batch_index_in_fba') 
+        self._get_cost = theano.function(
+            inputs = [self.index],
+            outputs = T.sum(self.error ** 2),
+            givens = {
+                 self.varin : self.data[self.index * self.batchsize: \
+                                        (self.index+1)*self.batchsize],
+                 self.truth : self.truth_data[self.index * self.batchsize: \
+                                              (self.index+1)*self.batchsize]
+            }
+        )
+
+
+    def set_learningrate(self, learningrate):
+        self.learningrate = learningrate
+        
+        layer_error = self.error
+        self.layer_learning_funcs = []
+        for i in range(len(model.models_stack) - 1, -1, -1):
+            iupdates = []
+            iupdates.append((
+                 model.models_stack[i].w,
+                 model.models_stack[i].w + self.learningrate * \
+                     T.dot(model.models_stack[i].varin.T, layer_error)
+            ))  # w
+            iupdates.append((
+                 model.models_stack[i].b,
+                 model.models_stack[i].b + self.learningrate * \
+                     T.mean(layer_error, axis=0)
+            ))  # b
+            layer_error = T.dot(layer_error, self.fixed_B[i][0].T)
+            
+            self.layer_learning_funcs.append(
+                theano.function(
+                    inputs = [self.index],
+                    outputs = model.models_stack[i].output(),
+                    updates = iupdates,
+                    givens = {
+                        self.varin : self.data[
+                            self.index * self.batchsize: \
+                            (self.index+1)*self.batchsize
+                        ],
+                        self.truth : self.truth_data[
+                            self.index * self.batchsize: \
+                            (self.index+1)*self.batchsize
+                        ]
+                    }
+                )
+            )  
+
+
+    def step(self):
+        stepcount = 0.0
+        for batch_index in self.rng.permutation(self.numbatches - 1):
+            cost = (1.0 - 1.0/stepcount) * cost + \
+                   (1.0/stepcount) * self._get_cost(batch_index)
+            for layer_learn in self.layer_learning_funcs:
+                layer_learn(batch_index)
 
         self.epochcount += 1
         if self.verbose:

@@ -20,9 +20,6 @@ class Layer(object):
         n_in : int
         n_out : int
         varin : theano.tensor.TensorVariable, optional
-        init_w : theano.tensor.TensorType, optional
-            We initialise the weights to be zero here, but it can be initialized
-            into a proper random distribution by set_value() in the subclass.
         """
         self.n_in = n_in
         self.n_out = n_out
@@ -39,6 +36,18 @@ class Layer(object):
 
     def output(self):
         raise NotImplementedError("Must be implemented by subclass.")
+
+        # def back(self, varup, given_params):
+        # """
+        # Compute backward from the output (given in parameter) to input. It is
+        # *NOT* computing the exact input which leads to the given output! That 
+        # can't be achieved while n_out < n_in. We just define a backward 
+        # computation, and that's all.
+        #
+        # varup : theano.tensor.TensorVariable
+        # Taken by the method to conduct a backward computation.
+        # """
+        # raise NotImplementedError("Must be implemented by subclass.")
 
     def __add__(self, other):
         """It is used for conveniently construct stacked layers."""
@@ -84,11 +93,12 @@ class Layer(object):
         else:
             plt.savefig(filename)
 
+"""
     def dispims_color(M, border=0, bordercolor=[0.0, 0.0, 0.0], *imshow_args, **imshow_keyargs):
-    i   """ Display an array of rgb images. 
+    i   """"""" Display an array of rgb images. 
 
         The input array is assumed to have the shape numimages x numpixelsY x numpixelsX x 3
-        """
+        """"""
         bordercolor = numpy.array(bordercolor)[None, None, :]
         numimages = len(M)
         M = M.copy()
@@ -113,6 +123,7 @@ class Layer(object):
         imshow_keyargs["interpolation"]="nearest"
         pylab.imshow(im, *imshow_args, **imshow_keyargs)
         pylab.show()
+"""
 
 
 class StackedLayer(Layer):
@@ -129,9 +140,8 @@ class StackedLayer(Layer):
             StackedLayer(...) + StackedLayer(...)
            we can get a StackedLayer object at its expression value.
         """
-        assert len(models_stack) > 1, "Warning: A Stacked Layer of empty " + \
-                                      "models or with only one layer is " + \
-                                      "trivial."
+        assert len(models_stack) >= 1, "Warning: A Stacked Layer of empty " + \
+                                       "models is trivial."
         for layer in models_stack:
             assert isinstance(layer, Layer), \
                 "All models in the models_stack list should be some " + \
@@ -176,6 +186,11 @@ class StackedLayer(Layer):
 class SigmoidLayer(Layer):
     def __init__(self, n_in, n_out, varin=None, init_w=None, init_b=None, 
                  npy_rng=None):
+        """
+        init_w : theano.compile.SharedVariable, optional
+            We initialise the weights to be zero here, but it can be initialized
+            into a proper random distribution by set_value() in the subclass.
+        """
         super(SigmoidLayer, self).__init__(n_in, n_out, varin=varin)
         if not npy_rng:
             npy_rng = numpy.random.RandomState(123)
@@ -209,6 +224,12 @@ class SigmoidLayer(Layer):
     def output(self):
         return T.nnet.sigmoid(self.fanin())
 
+        # def back(self, varup, given_params):
+        #    """
+        #    parameters order in the given_params should be exactly in the order
+        #    of self.params. We don't check it for simplifying computational graph.
+        #    """
+        #    return T.dot((-T.log(1. / varup - 1) - self.b), self.w.T)
 
 class LinearLayer(Layer):
     def __init__(self, n_in, n_out, varin=None, init_w=None, init_b=None, 

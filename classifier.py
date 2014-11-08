@@ -21,9 +21,15 @@ class Classifier(Model):
         self.vartruth = vartruth
 
     def output(self):
-        """The input and output should always be theano variables."""
+        """
+        output() is defined as the activity of the highest layer, not the 
+        prediction results. Prediction results are generated in the predict()
+        method. The input and output should always be theano variables.
+        """
         raise NotImplementedError("Must be implemented by subclass.")
 
+    def predict(self):
+        raise NotImplementedError("Must be implemented by subclass.")
 
     # Following are for analysis ----------------------------------------------
 
@@ -36,10 +42,10 @@ class Classifier(Model):
         verbose : bool
         """
         assert data.shape[0] == truth.shape[0], "Data and truth shape mismatch."
-        if not hasattr(self, '_get_output'):
-            self._get_output = theano.function([self.varin], self.output())
+        if not hasattr(self, '_get_predict'):
+            self._get_predict = theano.function([self.varin], self.predict())
 
-        cm = confusion_matrix(truth, self.get_output(data))
+        cm = confusion_matrix(truth, self.get_predict(data))
         pr_a = cm.trace()*1.0 / test_truth.size
         pr_e = ((cm.sum(axis=0)*1.0 / test_truth.size) * \
             (cm.sum(axis=1)*1.0 / test_truth.size)).sum()
@@ -100,17 +106,18 @@ class LogisticRegression(Classifier):
             init_w=self.w, init_b=self.b
         ).fanin()
 
-    def p_y_given_x(self):
+    def output(self):
+        """The output of a logistic regressor is p_y_given_x."""
         return T.nnet.softmax(self.fanin())
 
     def cost(self):
         return -T.mean(
-            T.log(self.p_y_given_x())[
+            T.log(self.output())[
                 T.arange(self.vartruth.shape[0]), self.vartruth]
         )
 
-    def output(self):
-        return T.argmax(self.p_y_given_x(), axis=1)
+    def predict(self):
+        return T.argmax(self.output(), axis=1)
 
 
 class Perceptron(Classifier):

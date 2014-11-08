@@ -165,11 +165,8 @@ for epoch in xrange(100):
 #############
 trainer = train.GraddescentMinibatch(
     varin=model.varin, data=trainpatches_theano, 
-    cost=model.models_stack[-1].cost(),
-    params=model.params,
-    truth=model.models_stack[-1].vartruth,
-    truth_data=train_y_theano,
-    supervised=True,
+    truth=model.models_stack[-1].vartruth, truth_data=train_y_theano,
+    supervised=True, cost=model.models_stack[-1].cost(), params=model.params,
     batchsize=100, learningrate=0.01, momentum=0.9, rng=npy_rng
 )
 
