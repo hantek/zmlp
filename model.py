@@ -27,6 +27,10 @@ class Model(Layer):
     def output(self):
         print "Calling the output of a base model might have no meaning."
 
+    def activ_prime(self):
+        print "Calling the derivative of activation of a base model might " + \
+              "have no meaning."
+    
     def cost(self):
         raise NotImplementedError("Must be implemented by subclass.")
 
@@ -101,6 +105,9 @@ class AutoEncoder(Model):
         """
         return self.hidden()
 
+    def activ_prime(self):
+        return self.encoder().activ_prime()
+    
     def reconstruction(self):
         return self.decoder().output()
 

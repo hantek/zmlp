@@ -99,16 +99,20 @@ class LogisticRegression(Classifier):
 
         self.params = [self.w, self.b]
 
-
     def fanin(self):
-        return SigmoidLayer(
-            self.n_in, self.n_out, varin=self.varin, 
-            init_w=self.w, init_b=self.b
-        ).fanin()
+        return T.dot(self.varin, self.w) + self.b
 
     def output(self):
         """The output of a logistic regressor is p_y_given_x."""
         return T.nnet.softmax(self.fanin())
+
+    def activ_prime(self):
+        """for the special relationship between softmax and sigmoid, we can
+        define this method in this classifier."""
+        return SigmoidLayer(
+            self.n_in, self.n_out, varin=self.varin,
+            init_w=self.w, init_b=self.b
+        ).activ_prime()
 
     def cost(self):
         return -T.mean(

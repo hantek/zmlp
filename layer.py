@@ -37,6 +37,13 @@ class Layer(object):
     def output(self):
         raise NotImplementedError("Must be implemented by subclass.")
 
+    def activ_prime(self):
+        """
+        Value of derivative of the activation function w.r.t fanin(), given 
+        fanin() as the argument of the derivative funciton.
+        """
+        raise NotImplementedError("Must be implemented by subclass.")
+
         # def back(self, varup, given_params):
         # """
         # Compute backward from the output (given in parameter) to input. It is
@@ -172,7 +179,7 @@ class StackedLayer(Layer):
         The fanin for a StackedLayer is defined as the fanin of its first layer.
         It's automatically in a recursive way, too.
         """
-        return models_stack[0].fanin()
+        return self.models_stack[0].fanin()
 
     def output(self):
         """
@@ -180,7 +187,12 @@ class StackedLayer(Layer):
         happen if we call this function on a StackedLayer object whose last
         layer model is still a StackedLayer object.
         """
-        return models_stack[-1].output()
+        return self.models_stack[-1].output()
+
+    def activ_prime(self):
+        # TODO might still exist problem here, if we call this method for 
+        # StackedLayer of StackedLayer.
+        return self.models_stack[-1].activ_prime()
 
 
 class SigmoidLayer(Layer):
@@ -224,12 +236,16 @@ class SigmoidLayer(Layer):
     def output(self):
         return T.nnet.sigmoid(self.fanin())
 
+    def activ_prime(self):
+        return self.output() * (1. - self.output())
+
         # def back(self, varup, given_params):
         #    """
         #    parameters order in the given_params should be exactly in the order
         #    of self.params. We don't check it for simplifying computational graph.
         #    """
         #    return T.dot((-T.log(1. / varup - 1) - self.b), self.w.T)
+
 
 class LinearLayer(Layer):
     def __init__(self, n_in, n_out, varin=None, init_w=None, init_b=None, 
@@ -267,6 +283,9 @@ class LinearLayer(Layer):
     def output(self):
         return self.fanin()
 
+    def activ_prime(self):
+        return 1.
+
 
 class ZerobiasLayer(Layer):
     def __init__(self, n_in, n_out, threshold=1.0, varin=None, init_w=None, 
@@ -297,6 +316,9 @@ class ZerobiasLayer(Layer):
 
     def output(self):
         return (self.fanin() > self.threshold) * self.fanin()
+
+    def activ_prime(self):
+        return (self.fanin() > self.threshold) * 1. 
 
 
 class TanhLayer(Layer):
