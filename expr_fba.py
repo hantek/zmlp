@@ -5,7 +5,7 @@ import theano
 import theano.tensor as T
 import cPickle
 
-from layer import SigmoidLayer
+from layer import SigmoidLayer, LinearLayer
 from classifier import LogisticRegression
 from train import GraddescentMinibatch, FeedbackAlignment
 from datasets import convert_to_onehot
@@ -99,7 +99,7 @@ npy_rng = numpy.random.RandomState(123)
 ######################
 # FEEDBACK ALIGNMENT #
 ######################
-
+"""
 model_fba = SigmoidLayer(
     784, 500, npy_rng = npy_rng
 ) + SigmoidLayer(
@@ -112,6 +112,23 @@ error_rate_fba = theano.function(
     T.mean(T.neq(T.argmax(model_fba.models_stack[-1].output(), axis=1), test_set_y)),
     givens = {model_fba.models_stack[0].varin : test_set_x[index:]},
 )
+"""
+train_set_x.set_value((train_set_x.get_value() - 0.5) * 3.33)
+test_set_x.set_value((test_set_x.get_value() - 0.5) * 3.33)
+train_set_y_onehot.set_value(train_set_y_onehot.get_value() * 2 - 1)
+model_fba = LinearLayer(
+    784, 500, npy_rng = npy_rng
+) + LinearLayer(
+    500, 10, npy_rng=npy_rng
+)
+
+index = T.lscalar()
+error_rate_fba = theano.function(
+    [index], 
+    T.mean(T.neq(T.argmax(model_fba.models_stack[-1].output(), axis=1), test_set_y)),
+    givens = {model_fba.models_stack[0].varin : test_set_x[index:]},
+)
+
 """
 Build the model in this way doesn't work quite well. Cost jumps to zero befor
 the error rate become smaller than 0.5. But error rate keeps decreasing 
@@ -136,7 +153,7 @@ print "Begin Feedback Alignment"
 fb_trainer = FeedbackAlignment(
     model=model_fba, 
     data=train_set_x, truth_data=train_set_y_onehot,
-    batchsize=1, learningrate=0.02, 
+    batchsize=1, learningrate=0.0001,
     rng=npy_rng, verbose=True
 )
 for epoch in xrange(5):

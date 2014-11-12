@@ -58,11 +58,19 @@ class Layer(object):
 
     def __add__(self, other):
         """It is used for conveniently construct stacked layers."""
-        if isinstance(other, Layer):
-            return StackedLayer(models_stack=[self, other], 
-                                varin=self.varin)
-        else:
-            raise SyntaxError("Addition not defined.")
+        assert isinstance(other, Layer), "Addition not defined."
+        if hasattr(self, 'models_stack'):
+            models_left = self.models_stack
+        else: 
+            models_left = [self]
+        
+        if hasattr(other, 'models_stack'):
+            models_right = other.models_stack
+        else: 
+            models_right = [other]
+        
+        models_stack = models_left + models_right
+        return StackedLayer(models_stack=models_stack, varin=self.varin)
 
 
     # Following are for analysis ----------------------------------------------
@@ -139,13 +147,27 @@ class StackedLayer(Layer):
         Ensure the following things:
         1. By calling StackedLayer([...], [...]) we definitely get a stacked la-
            yer.
-        2. StackedLayer as a whole can be viewed as a 1-layer model.
-        3. By calling 
-            Layer(...) + Layer(...), 
+        2. StackedLayer as a whole can be viewed as a 1-layer model. (i.e. it
+           guarantees all features of Layer in an appropriate way.)
+        3. By calling
+            Layer(...) + Layer(...),
             Layer(...) + StackedLayer(...)
             StackedLayer(...) + Layer(...), or
             StackedLayer(...) + StackedLayer(...)
-           we can get a StackedLayer object at its expression value.
+           we can get a *non-nested* StackedLayer object at its expression
+           value.
+
+        Although in the implementation of Layer and StackedLayer class we 
+        carefully ensure that nested StackedLayer (i.e. a StackedLayer of
+        StackedLayers) does not cause problem, it is not appreaciated because
+        it will make it inconvenient for analysing each layer's parameters.
+        That's why we flatten the models_stack attribute while overidding "+"
+        operator.
+
+        However, it's still possible to create a nested StackedLayer object by
+        directly calling the constructor of this class, passing a list with
+        elements of StackedLayer objects. ***Avoid to do this unless you have
+        a special reasoning on doing it.***
         """
         assert len(models_stack) >= 1, "Warning: A Stacked Layer of empty " + \
                                        "models is trivial."
@@ -192,7 +214,11 @@ class StackedLayer(Layer):
     def activ_prime(self):
         # TODO might still exist problem here, if we call this method for 
         # StackedLayer of StackedLayer.
+        # Consider change it to raise an error instead?
         return self.models_stack[-1].activ_prime()
+    
+    def num_layers(self):
+        return len(self.models_stack)
 
 
 class SigmoidLayer(Layer):
@@ -319,6 +345,46 @@ class ZerobiasLayer(Layer):
 
     def activ_prime(self):
         return (self.fanin() > self.threshold) * 1. 
+
+
+class ReluLayer(Layer):
+    def __init__(self, n_in, n_out, varin=None, init_w=None, init_b=None, 
+                 npy_rng=None):
+        super(ReluLayer, self).__init__(n_in, n_out, varin=varin)
+        if not npy_rng:
+            npy_rng = numpy.random.RandomState(123)
+        assert isinstance(npy_rng, numpy.random.RandomState)
+
+        if not init_w:
+            w = numpy.asarray(npy_rng.uniform(
+                low = -4 * numpy.sqrt(6. / (n_in + n_out)),
+                high = 4 * numpy.sqrt(6. / (n_in + n_out)),
+                size=(n_in, n_out)), dtype=theano.config.floatX)
+            init_w = theano.shared(value=w, name='w_relu', borrow=True)
+        # else:
+        #     TODO. The following assetion is complaining about an attribute
+        #     error while passing w.T to init_w. Considering using a more
+        #     robust way of assertion in the future.
+        #     assert init_w.get_value().shape == (n_in, n_out)
+        self.w = init_w
+
+        if not init_b:
+            init_b = theano.shared(value=numpy.zeros(n_out),
+                                   name='b_relu', borrow=True)
+        else:
+            assert init_b.get_value().shape == (n_out,)
+        self.b = init_b
+
+        self.params = [self.w, self.b]
+
+    def fanin(self):
+        return T.dot(self.varin, self.w) + self.b
+
+    def output(self):
+        return (self.fanin() > 0.) * self.fanin()
+
+    def activ_prime(self):
+        return (self.fanin() > 0.) * 1. 
 
 
 class TanhLayer(Layer):
