@@ -341,7 +341,8 @@ class ZerobiasLayer(Layer):
         return T.dot(self.varin, self.w)
 
     def output(self):
-        return (self.fanin() > self.threshold) * self.fanin()
+        fanin = self.fanin()
+        return T.switch(fanin > self.threshold, fanin, 0.)
 
     def activ_prime(self):
         return (self.fanin() > self.threshold) * 1. 
@@ -381,10 +382,10 @@ class ReluLayer(Layer):
         return T.dot(self.varin, self.w) + self.b
 
     def output(self):
-        return (self.fanin() > 0.) * self.fanin()
+        return T.maximum(self.fanin(), 0.)
 
     def activ_prime(self):
-        return (self.fanin() > 0.) * 1. 
+        return (self.fanin() > 0.) * 1.
 
 
 class TanhLayer(Layer):

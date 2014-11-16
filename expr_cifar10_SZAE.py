@@ -25,8 +25,8 @@ def unpickle(file):
     return dictionary
 
 crnt_dir = os.getcwd()
-# os.chdir('/home/hantek/data/cifar-10-batches-py')
-os.chdir('/data/lisa/data/cifar10/cifar-10-batches-py')
+os.chdir('/home/hantek/data/cifar-10-batches-py')
+# os.chdir('/data/lisa/data/cifar10/cifar-10-batches-py')
 npy_rng = numpy.random.RandomState(123)
 train_x_list = []
 train_y_list = []
@@ -39,15 +39,19 @@ test_x = dicti['data']
 test_y = dicti['labels']
 os.chdir(crnt_dir)
 
+train_x = numpy.concatenate(train_x_list) / 255. 
+std_x = train_x.std()
+mean_x = train_x.mean()
+train_x = ((train_x- mean_x) / std_x).astype(theano.config.floatX)
+test_x = (((test_x / 255.) - mean_x) / std_x).astype(theano.config.floatX)
+
 train_x = theano.shared(
-    value = (
-        numpy.concatenate(train_x_list) / 255.
-    ).astype(theano.config.floatX),
+    value = train_x,  # [:201, :],
     name = 'train_x',
     borrow = True
 )
 train_y = theano.shared(
-    value = numpy.concatenate(train_y_list),
+    value = numpy.concatenate(train_y_list),  # [:201],
     name = 'train_y',
     borrow = True
 )
@@ -59,23 +63,22 @@ train_y_onehot = theano.shared(
 )
 
 test_x = theano.shared(
-    value = (test_x / 255.).astype(theano.config.floatX),
+    value = test_x,
     name = 'test_x',
     borrow = True
 )
 
-pdb.set_trace()
 test_y = theano.shared(
     value = numpy.asarray(test_y).astype('int64'),
     name = 'test_y',
     borrow = True
 )
 
-###############
-# BUILD MODEL #
-###############
+#########################
+# BUILD PRE-TRAIN MODEL #
+#########################
 
-hid_layer_sizes = [1000, 1000]
+hid_layer_sizes = [4000, 4000]
 model = ZerobiasAutoencoder(
     3072, hid_layer_sizes[0], 
     threshold=1., vistype='real', tie=True, npy_rng=npy_rng
@@ -86,62 +89,85 @@ for i in range(len(hid_layer_sizes)-1):
         hid_layer_sizes[i], hid_layer_sizes[i+1],
         threshold=1., vistype='real', tie=True, npy_rng=npy_rng
     )
-model = model + ReluLayer(hid_layer_sizes[-1], 10, npy_rng=npy_rng)
-
 
 #############
 # PRE-TRAIN #
 #############
-for i in range(len(model.models_stack)-1):
+
+# pdb.set_trace()
+
+for i in range(len(model.models_stack)):
+    print "\n\nPre-training layer %d:" % i
     trainer = train.GraddescentMinibatch(
         varin=model.varin, data=train_x, 
         cost=model.models_stack[i].cost(),
         params=model.models_stack[i].params_private,
         supervised=False,
-        batchsize=100, learningrate=0.01, momentum=0.9, rng=npy_rng
+        batchsize=100, learningrate=0.00001, momentum=0.9, rng=npy_rng
     )
 
-    for epoch in xrange(2):
+    # if i == 1: 
+    #     pdb.set_trace()
+
+    for epoch in xrange(10):
         trainer.step()
         if epoch % 10 == 0 and epoch > 0:
             trainer.set_learningrate(trainer.learningrate*0.8)
+            """
             dispims_color(
                 numpy.dot(
                     model.w.get_value().T, pca_forward.T
                 ).reshape(-1, patchsize, patchsize, 3), 
                 1
             )
+            """
+    # pdb.set_trace()
 
+print "Done. Begin fine-tune:"
+
+#########################
+# BUILD FINE-TUNE MODEL #
+#########################
+
+model_ft = ReluLayer(
+    3072, hid_layer_sizes[0], 
+    init_w=model.models_stack[0].w
+)
+for i in range(len(hid_layer_sizes) - 1):
+    model_ft = model_ft + ReluLayer(
+        hid_layer_sizes[i], hid_layer_sizes[i+1],
+        init_w=model.models_stack[i+1].w
+    )
+model_ft = model_ft + LogisticRegression(
+    hid_layer_sizes[-1], 10, npy_rng=npy_rng
+)
+
+
+# pdb.set_trace()
+
+error_rate = theano.function(
+    [], 
+    T.mean(T.neq(model_ft.models_stack[-1].predict(), test_y)),
+    givens = {model_ft.varin : test_x},
+)
 
 #############
 # FINE-TUNE #
 #############
-for imodel in model.models_stack[:-1]:
-    imodel.threshold = 0. 
 
-index = T.lscalar()
-error_rate = theano.function(
-    [index], 
-    T.mean(T.neq(T.argmax(model.models_stack[-1].output(), axis=1), 
-                 test_y)),
-    givens = {model.models_stack[0].varin : test_x[index:]},
-)
 truth = T.lmatrix('truth')
 trainer = train.GraddescentMinibatch(
-    varin=model.varin, data=train_x, 
-    truth=truth, truth_data=train_y_onehot,
+    varin=model_ft.varin, data=train_x, 
+    truth=model_ft.models_stack[-1].vartruth, truth_data=train_y,
     supervised=True,
-    cost=T.mean(
-        T.sum(model.models_stack[-1].output - truth, axis=1),
-        axis=0
-    ), 
+    cost=model_ft.models_stack[-1].cost(), 
     params=model.params,
     batchsize=100, learningrate=0.01, momentum=0.9, rng=npy_rng
 )
 
-for epoch in xrange(1000):
+for epoch in xrange(100):
     trainer.step()
-    print "    error rate: %f" % (error_rate(0))
+    print "    error rate: %f" % (error_rate())
     if epoch % 10 == 0 and epoch > 0:
         trainer.set_learningrate(trainer.learningrate*0.8)
         """

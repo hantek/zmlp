@@ -117,14 +117,13 @@ class AutoEncoder(Model):
         real valued data. We can still overide it if we were using a different 
         training criteria.
         """
+        x_head = self.reconstruction()
         if self.vistype == 'binary':
-            x_head = self.reconstruction()
             cost_per_case = - T.sum(self.varin * T.log(x_head) + \
                 (1 - self.varin) * T.log(1 - x_head), axis=1)
             return T.mean(cost_per_case)
         elif self.vistype == 'real':
-            cost_per_case = T.sum((self.reconstruction() - self.varin) ** 2, 
-                                  axis=1)
+            cost_per_case = T.sum((x_head - self.varin) ** 2, axis=1)
             return T.mean(cost_per_case)
         else:
             raise ValueError("vistype has to be either binary or real.")
@@ -175,6 +174,98 @@ class AutoEncoder(Model):
             self._fig_quiver.canvas.draw()
 
 
+class ClassicalAutoencoder(AutoEncoder):
+    def __init__(self, n_in, n_hid, vistype, hidtype=None, varin=None, tie=True,
+                 init_w=None, init_b=None, init_wT=None, init_bT=None,
+                 npy_rng=None):
+        super(ClassicalAutoencoder, self).__init__(
+            n_in, n_hid, vistype=vistype, varin=varin
+        )
+
+        if not hidtype:
+            hidtype = self.vistype
+        assert (hidtype == 'binary' or hidtype == 'real')
+        self.hidtype = hidtype
+
+        if not npy_rng:
+            npy_rng = numpy.random.RandomState(123)
+        assert isinstance(npy_rng, numpy.random.RandomState)
+
+        if not init_w:
+            w = numpy.asarray(npy_rng.uniform(
+                low=-4 * numpy.sqrt(6. / (self.n_in + self.n_hid)),
+                high=4 * numpy.sqrt(6. / (self.n_in + self.n_hid)),
+                size=(self.n_in, self.n_hid)), dtype=theano.config.floatX)
+            init_w = theano.shared(value=w, name='w_ae', borrow=True)
+        # else:
+        #     TODO. The following assetion is complaining about an attribute
+        #     error while passing w.T to init_w. Considering using a more
+        #     robust way of assertion in the future.
+        #     assert init_w.get_value().shape == (n_in, n_out)
+        self.w = init_w
+
+        if tie:
+            assert init_wT == None, "Tied autoencoder do not accept init_wT."
+            init_wT = self.w.T
+        else:
+            if not init_wT:
+                wT = numpy.asarray(npy_rng.uniform(
+                    low = -4 * numpy.sqrt(6. / (self.n_hid + self.n_in)),
+                    high = 4 * numpy.sqrt(6. / (self.n_hid + self.n_in)),
+                    size=(self.n_hid, self.n_in)), dtype=theano.config.floatX)
+                init_wT = theano.shared(value=w, name='wT_ae', borrow=True)
+            # else:
+            #     TODO. The following assetion is complaining about an attribute
+            #     error while passing w.T to init_w. Considering using a more
+            #     robust way of assertion in the future.
+            #     assert init_wT.get_value().shape == (n_in, n_out)
+        self.wT = init_wT
+
+        if not init_b:
+            init_b = theano.shared(value=numpy.zeros(self.n_hid),
+                                   name='b_ae_encoder', borrow=True)
+        else:
+            assert init_b.get_value().shape == (self.n_hid,)
+        self.b = init_b
+        
+        if not init_bT:
+            init_bT = theano.shared(value=numpy.zeros(self.n_in),
+                                    name='b_ae_decoder', borrow=True)
+        else:
+            assert init_bT.get_value().shape == (self.n_in,)
+        self.bT = init_bT
+
+        self.params = [self.w, self.b]
+        if tie:
+            self.params_private = self.params + [self.bT]
+        else:
+            self.params_private = self.params + [self.wT, self.bT]
+
+    def encoder(self):
+        if self.hidtype == 'binary':
+            return SigmoidLayer(
+                self.n_in, self.n_hid, varin=self.varin,
+                init_w=self.w, init_b=self.b
+            )
+        elif self.hidtype == 'real':
+            return LinearLayer(
+                self.n_in, self.n_hid, varin=self.varin,
+                init_w=self.wT, init_b=self.bT
+            )
+        
+    def decoder(self):
+        if self.vistype == 'binary':
+            return SigmoidLayer(
+                self.n_hid, self.n_in, varin=self.encoder().output(),
+                init_w=self.wT, init_b=self.bT
+            )
+        elif self.vistype == 'real':
+            return LinearLayer(
+                self.n_hid, self.n_in, varin=self.encoder().output(),
+                init_w=self.wT, init_b=self.bT
+            )
+
+
 class ZerobiasAutoencoder(AutoEncoder):
     def __init__(self, n_in, n_hid, vistype, threshold=1.0, varin=None,
                  tie=True, init_w=None, init_wT=None, init_bT=None, 
@@ -220,7 +311,7 @@ class ZerobiasAutoencoder(AutoEncoder):
 
         if not init_bT:
             init_bT = theano.shared(value=numpy.zeros(self.n_in),
-                                    name='b_sigmoid', borrow=True)
+                                    name='b_zae_decoder', borrow=True)
         else:
             assert init_bT.get_value().shape == (self.n_in,)
         self.bT = init_bT
