@@ -103,13 +103,13 @@ for i in range(len(model.models_stack)):
         cost=model.models_stack[i].cost(),
         params=model.models_stack[i].params_private,
         supervised=False,
-        batchsize=100, learningrate=0.00001, momentum=0.9, rng=npy_rng
+        batchsize=100, learningrate=0.00002, momentum=0.9, rng=npy_rng
     )
 
     # if i == 1: 
     #     pdb.set_trace()
 
-    for epoch in xrange(10):
+    for epoch in xrange(60):
         trainer.step()
         if epoch % 10 == 0 and epoch > 0:
             trainer.set_learningrate(trainer.learningrate*0.8)
@@ -162,10 +162,10 @@ trainer = train.GraddescentMinibatch(
     supervised=True,
     cost=model_ft.models_stack[-1].cost(), 
     params=model.params,
-    batchsize=100, learningrate=0.01, momentum=0.9, rng=npy_rng
+    batchsize=100, learningrate=0.05, momentum=0.9, rng=npy_rng
 )
 
-for epoch in xrange(100):
+for epoch in xrange(600):
     trainer.step()
     print "    error rate: %f" % (error_rate())
     if epoch % 10 == 0 and epoch > 0:
