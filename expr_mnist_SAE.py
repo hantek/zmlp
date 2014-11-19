@@ -9,7 +9,6 @@ from model import ClassicalAutoencoder
 from classifier import LogisticRegression
 from train import GraddescentMinibatch
 
-import pdb
 
 def load_data(dataset):
     ''' Loads the dataset
@@ -83,8 +82,8 @@ def load_data(dataset):
 # LOAD DATA #
 #############
 
-datasets = load_data('/home/hantek/data/mnist.pkl.gz')
-# datasets = load_data('/data/lisa/data/mnist.pkl.gz')
+# datasets = load_data('/home/hantek/data/mnist.pkl.gz')
+datasets = load_data('/data/lisa/data/mnist.pkl.gz')
 
 train_set_x, train_set_y = datasets[0]
 valid_set_x, valid_set_y = datasets[1]
@@ -95,8 +94,6 @@ npy_rng = numpy.random.RandomState(123)
 ###############
 # BUILD MODEL #
 ###############
-
-pdb.set_trace()
 
 model = ClassicalAutoencoder(
     784, 1000, vistype = 'binary', npy_rng = npy_rng
@@ -121,7 +118,7 @@ error_rate = theano.function(
 for i in range(len(model.models_stack)-1):
     print "\n\nPre-training layer %d:" % i
     trainer = GraddescentMinibatch(
-        varin=model.varin, data=train_set_x, 
+        varin=model.varin, data=train_set_x,   #theano.shared(train_set_x.get_value()[:1000, :].astype(theano.config.floatX)),  #
         cost=model.models_stack[i].cost(),
         params=model.models_stack[i].params_private,
         supervised=False,
@@ -130,6 +127,7 @@ for i in range(len(model.models_stack)-1):
 
     for epoch in xrange(15):
         trainer.step()
+        # model.models_stack[i].encoder().draw_weight()
 
 #############
 # FINE-TUNE #

@@ -222,14 +222,18 @@ class ClassicalAutoencoder(AutoEncoder):
         self.wT = init_wT
 
         if not init_b:
-            init_b = theano.shared(value=numpy.zeros(self.n_hid),
+            init_b = theano.shared(value=numpy.zeros(
+                                       self.n_hid,
+                                       dtype=theano.config.floatX),
                                    name='b_ae_encoder', borrow=True)
         else:
             assert init_b.get_value().shape == (self.n_hid,)
         self.b = init_b
         
         if not init_bT:
-            init_bT = theano.shared(value=numpy.zeros(self.n_in),
+            init_bT = theano.shared(value=numpy.zeros(
+                                        self.n_in,
+                                        dtype=theano.config.floatX),
                                     name='b_ae_decoder', borrow=True)
         else:
             assert init_bT.get_value().shape == (self.n_in,)
@@ -310,7 +314,8 @@ class ZerobiasAutoencoder(AutoEncoder):
         self.wT = init_wT
 
         if not init_bT:
-            init_bT = theano.shared(value=numpy.zeros(self.n_in),
+            init_bT = theano.shared(value=numpy.zeros(
+                                        self.n_in, dtype=theano.config.floatX),
                                     name='b_zae_decoder', borrow=True)
         else:
             assert init_bT.get_value().shape == (self.n_in,)

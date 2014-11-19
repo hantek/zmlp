@@ -11,6 +11,8 @@ import matplotlib
 # matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+import pdb
+
 
 class Layer(object):
     def __init__(self, n_in, n_out, varin=None):
@@ -44,17 +46,12 @@ class Layer(object):
         """
         raise NotImplementedError("Must be implemented by subclass.")
 
-        # def back(self, varup, given_params):
-        # """
-        # Compute backward from the output (given in parameter) to input. It is
-        # *NOT* computing the exact input which leads to the given output! That 
-        # can't be achieved while n_out < n_in. We just define a backward 
-        # computation, and that's all.
-        #
-        # varup : theano.tensor.TensorVariable
-        # Taken by the method to conduct a backward computation.
-        # """
-        # raise NotImplementedError("Must be implemented by subclass.")
+    def _print_str(self):
+        return self.__class__.__name__ + ": " + str(self.n_in) + " --> " \
+                                              + str(self.n_out)
+
+    def print_layer(self):
+        print self._print_str()
 
     def __add__(self, other):
         """It is used for conveniently construct stacked layers."""
@@ -63,12 +60,12 @@ class Layer(object):
             models_left = self.models_stack
         else: 
             models_left = [self]
-        
+
         if hasattr(other, 'models_stack'):
             models_right = other.models_stack
         else: 
             models_right = [other]
-        
+
         models_stack = models_left + models_right
         return StackedLayer(models_stack=models_stack, varin=self.varin)
 
@@ -89,20 +86,23 @@ class Layer(object):
         -----------
         """
         assert hasattr(self, 'w'), "The layer need to have weight defined."
-
         if not hasattr(self, '_fig_weight'):
             self._fig_weight = plt.gcf()
             plt1 = self._fig_weight.add_subplot(311)
-            p1 = plt1.imshow(self.w.get_value())
+            plt.gray()
+            p1 = plt1.imshow(self.w.eval())
             plt2 = self._fig_weight.add_subplot(312)
-            n, bins, patches = plt2.hist(self.w.get_value(), face_color='blue')
+            n, bins, patches = plt2.hist(self.w.eval().flatten(), 10,
+                                         facecolor='blue')
             plt3 = self._fig_weight.add_subplot(313)
             p3 = plt3.imshow(T.dot(self.w.T, self.w).eval())
-            plt.clim()
         else:
-            p1.set_data(self.w.get_value())
-            n, bins, patches = plt2.hist(self.w.get_value(), face_color='blue')
+            p1.set_data(self.w.eval())
+            plt2.cla()
+            n, bins, patches = plt2.hist(self.w.eval().flatten(), 10,
+                                         facecolor='blue')
             p3.set_data(T.dot(self.w.T, self.w).eval())
+        self._fig_weight.canvas.draw()
         if verbose:
             plt.pause(0.5)
         else:
@@ -216,9 +216,36 @@ class StackedLayer(Layer):
         # StackedLayer of StackedLayer.
         # Consider change it to raise an error instead?
         return self.models_stack[-1].activ_prime()
-    
+
     def num_layers(self):
         return len(self.models_stack)
+
+    def print_layer(self):
+        print "-" * 35
+        print "a stacked model with %d layers:" % self.num_layers()
+        print "-" * 35
+
+        previous_layer_string = None
+        repeat_count = 0
+        for layer_model in self.models_stack:
+            layer_string = layer_model._print_str()
+            if not previous_layer_string:  # First layer
+                num_space = len(layer_string)/2
+                print layer_string
+            else:
+                if layer_string == previous_layer_string:
+                    repeat_count += 1
+                else:
+                    if repeat_count != 0:
+                        print " " * (num_space - 5), \
+                              "(same x %d)" % (repeat_count + 1)
+                        repeat_count = 0
+                    print " " * num_space + "|"
+                    print layer_string
+            previous_layer_string = layer_string
+        if repeat_count != 0:
+            print " " * (num_space - 5), "same x %d" % (repeat_count + 1)
+        print "-" * 35
 
 
 class SigmoidLayer(Layer):
@@ -248,7 +275,9 @@ class SigmoidLayer(Layer):
         self.w = init_w
 
         if not init_b:
-            init_b = theano.shared(value=numpy.zeros(n_out),
+            init_b = theano.shared(value=numpy.zeros(
+                                       n_out,
+                                       dtype=theano.config.floatX),
                                    name='b_sigmoid', borrow=True)
         else:
             assert init_b.get_value().shape == (n_out,)
@@ -295,7 +324,9 @@ class LinearLayer(Layer):
         self.w = init_w
 
         if not init_b:
-            init_b = theano.shared(value=numpy.zeros(n_out),
+            init_b = theano.shared(value=numpy.zeros(
+                                       n_out,
+                                       dtype=theano.config.floatX),
                                    name='b_linear', borrow=True)
         else:
             assert init_b.get_value().shape == (n_out,)
@@ -370,7 +401,9 @@ class ReluLayer(Layer):
         self.w = init_w
 
         if not init_b:
-            init_b = theano.shared(value=numpy.zeros(n_out),
+            init_b = theano.shared(value=numpy.zeros(
+                                       n_out,
+                                       dtype=theano.config.floatX),
                                    name='b_relu', borrow=True)
         else:
             assert init_b.get_value().shape == (n_out,)

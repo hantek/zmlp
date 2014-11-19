@@ -4,7 +4,7 @@ import theano
 import theano.tensor as T
 import cPickle
 
-from layer import ZerobiasLayer, ReluLayer
+from layer import StackedLayer, ZerobiasLayer, ReluLayer
 from classifier import LogisticRegression
 from model import ZerobiasAutoencoder
 from dispims_color import dispims_color
@@ -80,19 +80,11 @@ test_y = theano.shared(
 #########################
 
 print "... building pre-train model"
-hid_layer_sizes = [4000, 4000]
-model = ZerobiasAutoencoder(
-    3072, hid_layer_sizes[0], 
+model = StackedLayer(models_stack=[ZerobiasAutoencoder(
+    3072, 4000, 
     threshold=1., vistype='real', tie=True, npy_rng=npy_rng
-)
+)])
 
-for i in range(len(hid_layer_sizes)-1):
-    model = model + ZerobiasAutoencoder(
-        hid_layer_sizes[i], hid_layer_sizes[i+1],
-        threshold=1., vistype='real', tie=True, npy_rng=npy_rng
-    )
-model.print_layer()
-print "Done."
 
 #############
 # PRE-TRAIN #
@@ -105,14 +97,10 @@ for i in range(len(model.models_stack)):
         cost=model.models_stack[i].cost(),
         params=model.models_stack[i].params_private,
         supervised=False,
-        batchsize=100, learningrate=0.00002, momentum=0.9, rng=npy_rng
+        batchsize=100, learningrate=2e-5, momentum=0.9, rng=npy_rng
     )
-    if i == 0:
-        pre_train_epc = 800
-    if i == 1:
-        pre_train_epc = 450
 
-    for epoch in xrange(pre_train_epc):
+    for epoch in xrange(1500):
         trainer.step()
         if epoch % 10 == 0 and epoch > 0:
             trainer.set_learningrate(trainer.learningrate*0.8)
@@ -132,30 +120,17 @@ print "Done."
 
 print "\n\n... building fine-tune model"
 model_ft = ReluLayer(
-    3072, hid_layer_sizes[0], 
+    3072, 4000, 
     init_w=model.models_stack[0].w
+) + LogisticRegression(
+    4000, 10, npy_rng=npy_rng
 )
-for i in range(len(hid_layer_sizes) - 1):
-    model_ft = model_ft + ReluLayer(
-        hid_layer_sizes[i], hid_layer_sizes[i+1],
-        init_w=model.models_stack[i+1].w
-    )
-model_ft = model_ft + LogisticRegression(
-    hid_layer_sizes[-1], 10, npy_rng=npy_rng
-)
-model_ft.print_layer()
 
-train_set_error_rate = theano.function(
-    [], 
-    T.mean(T.neq(model_ft.models_stack[-1].predict(), train_y[:30000])),
-    givens = {model_ft.varin : train_x[:30000, :]},
-)
-test_set_error_rate = theano.function(
+error_rate = theano.function(
     [], 
     T.mean(T.neq(model_ft.models_stack[-1].predict(), test_y)),
     givens = {model_ft.varin : test_x},
 )
-print "Done."
 
 #############
 # FINE-TUNE #
@@ -170,13 +145,11 @@ trainer = train.GraddescentMinibatch(
     params=model.models_stack[-1].params,
     batchsize=100, learningrate=0.5, momentum=0.9, rng=npy_rng
 )
-for epoch in xrange(600):
+for epoch in xrange(1000):
     trainer.step()
     if epoch % 10 == 0 and epoch > 0:
-        print "***error rate: train: %f, test: %f" % (
-            train_set_error_rate(), test_set_error_rate()
-        )
-    if epoch % 50 == 0 and epoch > 0:
+        print "    error rate: %f" % (error_rate())
+    if epoch % 15 == 0 and epoch > 0:
         trainer.set_learningrate(trainer.learningrate*0.8)
 
 
@@ -189,16 +162,14 @@ trainer = train.GraddescentMinibatch(
     supervised=True,
     cost=model_ft.models_stack[-1].cost(), 
     params=model.params,
-    batchsize=100, learningrate=0.000005, momentum=0.9, rng=npy_rng
+    batchsize=100, learningrate=5e-8, momentum=0.9, rng=npy_rng
 )
 
 for epoch in xrange(600):
     trainer.step()
     if epoch % 50 == 0 and epoch > 0:
         trainer.set_learningrate(trainer.learningrate*0.8)
-        print "***error rate: train: %f, test: %f" % (
-            train_set_error_rate(), test_set_error_rate()
-        )
+        print "    error rate: %f" % (error_rate())
         """
         dispims_color(
             numpy.dot(

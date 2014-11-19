@@ -2,7 +2,7 @@
 *~      #gedit backup files
 *.swp   #vim swap files
 *.pyc   #python files
-exp/*   #experiments
+expr/*   #experiments
 *.bak
 *.swp
 

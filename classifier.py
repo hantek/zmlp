@@ -91,7 +91,9 @@ class LogisticRegression(Classifier):
         self.w = init_w
 
         if not init_b:
-            init_b = theano.shared(value=numpy.zeros(n_out),
+            init_b = theano.shared(value=numpy.zeros(
+                                       n_out,
+                                       dtype=theano.config.floatX),
                                    name='b_sigmoid', borrow=True)
         else:
             assert init_b.get_value().shape == (n_out,)

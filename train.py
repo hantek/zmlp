@@ -2,7 +2,12 @@ import numpy
 import numpy.random
 import theano
 import theano.tensor as T
-from theano.tensor.shared_randomstreams import RandomStreams
+
+SharedCPU = theano.tensor.sharedvar.TensorSharedVariable
+try:
+    SharedGPU = theano.sandbox.cuda.var.CudaNdarraySharedVariable
+except:
+    SharedGPU=SharedCPU
 
 
 class GraddescentMinibatch(object):
@@ -18,7 +23,9 @@ class GraddescentMinibatch(object):
         # TODO: check dependencies between varin, cost, and param.
         
         assert isinstance(varin, T.TensorVariable)
-        assert isinstance(data, T.sharedvar.TensorSharedVariable)
+        if (not isinstance(data, SharedCPU)) and \
+           (not isinstance(data, SharedGPU)):
+            raise TypeError("\'data\' needs to be a theano shared variable.")
         assert isinstance(cost, T.TensorVariable)
         assert isinstance(params, list)
         self.varin         = varin
@@ -27,7 +34,10 @@ class GraddescentMinibatch(object):
         self.params        = params
         
         if supervised:
-            assert isinstance(truth_data, T.sharedvar.TensorSharedVariable)
+            if (not isinstance(truth_data, SharedCPU)) and \
+               (not isinstance(truth_data, SharedGPU)):
+                raise TypeError("\'truth_data\' needs to be a theano " + \
+                                "shared variable.")
             assert isinstance(truth, T.TensorVariable)
             self.truth_data = truth_data
             self.truth = truth
@@ -156,8 +166,12 @@ class FeedbackAlignment(object):
 
         truth_data : theano.compile.SharedVariable
         """
-        assert isinstance(data, T.sharedvar.TensorSharedVariable)
-        assert isinstance(truth_data, T.sharedvar.TensorSharedVariable)
+        if (not isinstance(data, SharedCPU)) and \
+           (not isinstance(data, SharedGPU)):
+            raise TypeError("\'data\' needs to be a theano shared variable.")
+        if (not isinstance(truth_data, SharedCPU)) and \
+           (not isinstance(truth_data, SharedGPU)):
+            raise TypeError("\'truth_data\' needs to be a theano shared variable.")
         self.varin         = model.models_stack[0].varin
         self.truth         = T.lmatrix('trurh_fba')
         self.data          = data
@@ -180,9 +194,7 @@ class FeedbackAlignment(object):
 
         # set fixed random matrix
         self.fixed_B = [None, ]
-        # assert isinstance(models_stack[0], LinearLayer)
         for imod in self.model.models_stack[1:]:
-            # assert isinstance(imod, LinearLayer)
             i_layer_B = []
             for ipar in imod.params:
                 rnd = numpy.asarray(
