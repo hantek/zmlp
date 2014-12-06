@@ -51,6 +51,7 @@ model = ClassicalAutoencoder(
 ) + LogisticRegression(
     1000, 10, npy_rng = npy_rng
 )
+model.print_layer()
 
 error_rate = theano.function(
     [], 
