@@ -147,6 +147,7 @@ class GraddescentMinibatch(object):
             print 'epoch: %d, lr: %f, cost: %f' % (
                 self.epochcount, self.learningrate, cost
             )
+        return cost
 
 
 class FeedbackAlignment(object):
@@ -283,3 +284,4 @@ class FeedbackAlignment(object):
             print 'epoch: %d, lr: %f, cost: %f' % (
                 self.epochcount, self.learningrate, cost
             )
+        return cost

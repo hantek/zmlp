@@ -122,6 +122,9 @@ class LogisticRegression(Classifier):
                 T.arange(self.vartruth.shape[0]), self.vartruth]
         )
 
+    def weightdecay_cost(self, weightdecay=1e-3):
+        return self.cost() + weightdecay * (self.w**2).sum()
+
     def predict(self):
         return T.argmax(self.output(), axis=1)
 
